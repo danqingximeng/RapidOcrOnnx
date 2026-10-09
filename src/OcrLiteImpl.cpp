@@ -1,6 +1,29 @@
 #include "OcrLiteImpl.h"
 #include "OcrUtils.h"
 #include <stdarg.h> //windows&linux
+#include <cstdlib>
+#include <algorithm>
+
+// Align with PaddleOCR tools/infer/predict_system.py sorted_boxes
+static void sortTextBoxesByReadingOrder(std::vector<TextBox> &textBoxes) {
+    std::stable_sort(textBoxes.begin(), textBoxes.end(),
+                     [](const TextBox &a, const TextBox &b) {
+                         if (a.boxPoint[0].y != b.boxPoint[0].y) return a.boxPoint[0].y < b.boxPoint[0].y;
+                         return a.boxPoint[0].x < b.boxPoint[0].x;
+                     });
+    int numBoxes = (int) textBoxes.size();
+    for (int i = 0; i < numBoxes - 1; ++i) {
+        for (int j = i; j >= 0; --j) {
+            const cv::Point &prev = textBoxes[j].boxPoint[0];
+            const cv::Point &next = textBoxes[j + 1].boxPoint[0];
+            if (std::abs(next.y - prev.y) < 10 && next.x < prev.x) {
+                std::swap(textBoxes[j], textBoxes[j + 1]);
+            } else {
+                break;
+            }
+        }
+    }
+}
 
 OcrLiteImpl::OcrLiteImpl() {
     loggerBuffer = (char *)malloc(8192);
@@ -178,6 +201,8 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
     double endDbNetTime = getCurrentTime();
     double dbNetTime = endDbNetTime - startTime;
     Logger("dbNetTime(%fms)\n", dbNetTime);
+
+    sortTextBoxesByReadingOrder(textBoxes);
 
     for (size_t i = 0; i < textBoxes.size(); ++i) {
         Logger("TextBox[%d](+padding)[score(%f),[x: %d, y: %d], [x: %d, y: %d], [x: %d, y: %d], [x: %d, y: %d]]\n", i,

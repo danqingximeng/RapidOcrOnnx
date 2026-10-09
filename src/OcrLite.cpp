@@ -1,5 +1,6 @@
 #include "OcrLite.h"
 #include "OcrLiteImpl.h"
+#include <cstdarg>
 
 OcrLite::OcrLite() {
     pImpl = new OcrLiteImpl();

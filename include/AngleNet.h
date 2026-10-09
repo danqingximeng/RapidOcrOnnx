@@ -2,7 +2,7 @@
 #define __OCR_ANGLENET_H__
 
 #include "OcrStruct.h"
-#include <onnxruntime/core/session/onnxruntime_cxx_api.h>
+#include <onnxruntime_cxx_api.h>
 #include <opencv2/opencv.hpp>
 
 class AngleNet {
@@ -34,6 +34,8 @@ private:
     const float normValues[3] = {1.0 / 127.5, 1.0 / 127.5, 1.0 / 127.5};
     const int dstWidth = 192;
     const int dstHeight = 48;
+    //PaddleOCR default cls_thresh (tools/infer/predict_cls.py)
+    const float clsScoreThresh = 0.9f;
 
     Angle getAngle(cv::Mat &src);
 };

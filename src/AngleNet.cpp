@@ -120,6 +120,12 @@ std::vector<Angle> AngleNet::getAngles(std::vector<cv::Mat> &partImgs, const cha
             double endAngle = getCurrentTime();
             angle.time = endAngle - startAngle;
 
+            //Align with PaddleOCR tools/infer/predict_cls.py: rotate only when
+            //label is 180 and score > cls_thresh(0.9).
+            if (angle.index == 1 && angle.score <= clsScoreThresh) {
+                angle.index = 0;
+            }
+
             angles[i] = angle;
 
             //OutPut AngleImg

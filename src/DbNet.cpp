@@ -62,7 +62,7 @@ void DbNet::initModel(const std::string &pathStr) {
 std::vector<TextBox> findRsBoxes(const cv::Mat &predMat, const cv::Mat &dilateMat, ScaleParam &s,
                                  const float boxScoreThresh, const float unClipRatio) {
     const int longSideThresh = 3;//minBox 长边门限
-    const int maxCandidates = 1000;
+    const int maxCandidates = 3000;// 对齐官方 inference.yml max_candidates
 
     std::vector<std::vector<cv::Point>> contours;
     std::vector<cv::Vec4i> hierarchy;
