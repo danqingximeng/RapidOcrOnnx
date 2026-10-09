@@ -19,8 +19,6 @@ public:
 
     void initLogger(bool isConsole, bool isPartImg, bool isResultImg);
 
-    void enableResultTxt(const char *path, const char *imgName);
-
     void setGpuIndex(int gpuIndex);
 
     bool initModels(const std::string &detPath, const std::string &clsPath,
@@ -45,9 +43,7 @@ private:
     friend void OcrLite::Logger(const char *format, ...);
     bool isOutputConsole = false;
     bool isOutputPartImg = false;
-    bool isOutputResultTxt = false;
     bool isOutputResultImg = false;
-    FILE *resultTxt;
     DbNet dbNet;
     AngleNet angleNet;
     CrnnNet crnnNet;

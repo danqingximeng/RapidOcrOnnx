@@ -18,20 +18,20 @@ void CrnnNet::setGpuIndex(int gpuIndex) {
         cuda_options.do_copy_in_default_stream = 1;
 
         sessionOptions.AppendExecutionProvider_CUDA(cuda_options);
-        printf("rec try to use GPU%d\n", gpuIndex);
+        fprintf(stderr, "rec try to use GPU%d\n", gpuIndex);
 }
     else {
-        printf("rec use CPU\n");
+        fprintf(stderr, "rec use CPU\n");
     }
 #endif
 
 #ifdef __DIRECTML__
     if (gpuIndex >= 0) {
         OrtSessionOptionsAppendExecutionProvider_DML(sessionOptions, gpuIndex);
-        printf("rec try to use GPU%d\n", gpuIndex);
+        fprintf(stderr, "rec try to use GPU%d\n", gpuIndex);
     }
     else {
-        printf("rec use CPU\n");
+        fprintf(stderr, "rec use CPU\n");
     }
 #endif
 }
@@ -82,12 +82,15 @@ void CrnnNet::initModel(const std::string &pathStr, const std::string &keysPath)
             keys.push_back(line);
         }
     } else {
-        printf("The keys.txt file was not found\n");
+        fprintf(stderr, "The keys.txt file was not found\n");
         return;
     }
     keys.insert(keys.begin(), "#");
     keys.emplace_back(" ");
-    printf("total keys size(%lu)\n", keys.size());
+}
+
+size_t CrnnNet::keysSize() const {
+    return keys.size();
 }
 
 template<class ForwardIterator>

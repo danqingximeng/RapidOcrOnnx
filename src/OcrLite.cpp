@@ -18,10 +18,6 @@ void OcrLite::initLogger(bool isConsole, bool isPartImg, bool isResultImg) {
     pImpl->initLogger(isConsole, isPartImg, isResultImg);
 }
 
-void OcrLite::enableResultTxt(const char *path, const char *imgName) {
-    pImpl->enableResultTxt(path, imgName);
-}
-
 void OcrLite::setGpuIndex(int gpuIndex) {
     pImpl->setGpuIndex(gpuIndex);
 }
@@ -32,14 +28,13 @@ bool OcrLite::initModels(const std::string &detPath, const std::string &clsPath,
 }
 
 void OcrLite::Logger(const char *format, ...) {
-    if (!(pImpl->isOutputConsole || pImpl->isOutputResultTxt)) return;
+    if (!pImpl->isOutputConsole) return;
     char *buffer = (char *) malloc(8192);
     va_list args;
     va_start(args, format);
     vsprintf(buffer, format, args);
     va_end(args);
-    if (pImpl->isOutputConsole) printf("%s", buffer);
-    if (pImpl->isOutputResultTxt) fprintf(pImpl->resultTxt, "%s", buffer);
+    fprintf(stderr, "%s", buffer);
     free(buffer);
 }
 

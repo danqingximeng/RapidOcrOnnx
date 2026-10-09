@@ -87,8 +87,6 @@ void saveImg(cv::Mat &img, const char *imgPath);
 
 std::string getSrcImgFilePath(const char *path, const char *imgName);
 
-std::string getResultTxtFilePath(const char *path, const char *imgName);
-
 std::string getResultImgFilePath(const char *path, const char *imgName);
 
 std::string getDebugImgFilePath(const char *path, const char *imgName, size_t i, const char *tag);

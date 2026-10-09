@@ -167,7 +167,6 @@ int main(int argc, char **argv) {
             false,//isOutputPartImg
             false);//isOutputResultImg
 
-    //ocrLite.enableResultTxt(imgDir.c_str(), imgName.c_str());
     ocrLite.setGpuIndex(flagGpu);
     printf("=====Input Params=====\n");
     printf("numThread(%d),padding(%d),maxSideLen(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",

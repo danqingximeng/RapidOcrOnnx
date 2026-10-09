@@ -16,6 +16,8 @@ public:
 
     void initModel(const std::string &pathStr, const std::string &keysPath);
 
+    size_t keysSize() const;
+
     std::vector<TextLine> getTextLines(std::vector<cv::Mat> &partImg, const char *path, const char *imgName);
 
 private:

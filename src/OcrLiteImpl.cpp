@@ -2,6 +2,7 @@
 #include "OcrUtils.h"
 #include <stdarg.h> //windows&linux
 #include <cstdlib>
+#include <stdexcept>
 #include <algorithm>
 
 // Align with PaddleOCR tools/infer/predict_system.py sorted_boxes
@@ -30,9 +31,6 @@ OcrLiteImpl::OcrLiteImpl() {
 }
 
 OcrLiteImpl::~OcrLiteImpl() {
-    if (isOutputResultTxt) {
-        fclose(resultTxt);
-    }
     free(loggerBuffer);
 }
 
@@ -46,13 +44,6 @@ void OcrLiteImpl::initLogger(bool isConsole, bool isPartImg, bool isResultImg) {
     isOutputConsole = isConsole;
     isOutputPartImg = isPartImg;
     isOutputResultImg = isResultImg;
-}
-
-void OcrLiteImpl::enableResultTxt(const char *path, const char *imgName) {
-    isOutputResultTxt = true;
-    std::string resultTxtPath = getResultTxtFilePath(path, imgName);
-    printf("resultTxtPath(%s)\n", resultTxtPath.c_str());
-    resultTxt = fopen(resultTxtPath.c_str(), "w");
 }
 
 void OcrLiteImpl::setGpuIndex(int gpuIndex) {
@@ -72,20 +63,20 @@ bool OcrLiteImpl::initModels(const std::string &detPath, const std::string &clsP
 
     Logger("--- Init CrnnNet ---\n");
     crnnNet.initModel(recPath, keysPath);
+    Logger("total keys size(%zu)\n", crnnNet.keysSize());
 
     Logger("Init Models Success!\n");
     return true;
 }
 
 void OcrLiteImpl::Logger(const char *format, ...) {
-    if (!(isOutputConsole || isOutputResultTxt)) return;
+    if (!isOutputConsole) return;
     memset(loggerBuffer, 0, 8192);
     va_list args;
     va_start(args, format);
     vsprintf(loggerBuffer, format, args);
     va_end(args);
-    if (isOutputConsole) printf("%s", loggerBuffer);
-    if (isOutputResultTxt) fprintf(resultTxt, "%s", loggerBuffer);
+    fprintf(stderr, "%s", loggerBuffer);
 }
 
 cv::Mat makePadding(cv::Mat &src, const int padding) {
@@ -101,6 +92,9 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
                           float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle) {
     std::string imgFile = getSrcImgFilePath(path, imgName);
     cv::Mat originSrc = imread(imgFile, cv::IMREAD_COLOR);//default : BGR
+    if (originSrc.empty()) {
+        throw std::runtime_error("image load failed: " + imgFile);
+    }
     int originMaxSide = (std::max)(originSrc.cols, originSrc.rows);
     int resize;
     if (maxSideLen <= 0 || maxSideLen > originMaxSide) {

@@ -79,14 +79,6 @@ Java_com_benjaminwan_ocrlibrary_OcrEngine_initLogger(JNIEnv *env, jobject thiz, 
                         isResultImg);//isOutputResultImg
 }
 
-extern "C" JNIEXPORT void JNICALL
-Java_com_benjaminwan_ocrlibrary_OcrEngine_enableResultText(JNIEnv *env, jobject thiz, jstring input) {
-    std::string imgPath = jstringToChar(env, input);
-    std::string imgDir = imgPath.substr(0, imgPath.find_last_of('/') + 1);
-    std::string imgName = imgPath.substr(imgPath.find_last_of('/') + 1);
-    ocrLite->enableResultTxt(imgDir.c_str(), imgName.c_str());
-}
-
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_benjaminwan_ocrlibrary_OcrEngine_initModels(JNIEnv *env, jobject thiz, jstring path,
                                                      jstring det, jstring cls, jstring rec, jstring keys) {

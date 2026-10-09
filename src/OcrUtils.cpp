@@ -383,12 +383,6 @@ std::string getSrcImgFilePath(const char *path, const char *imgName) {
     return filePath;
 }
 
-std::string getResultTxtFilePath(const char *path, const char *imgName) {
-    std::string filePath;
-    filePath.append(path).append(imgName).append("-result.txt");
-    return filePath;
-}
-
 std::string getResultImgFilePath(const char *path, const char *imgName) {
     std::string filePath;
     filePath.append(path).append(imgName).append("-result.jpg");

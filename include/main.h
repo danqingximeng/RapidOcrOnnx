@@ -3,6 +3,11 @@
 
 #include "getopt.h"
 
+enum {
+    OPT_DEBUG = 1001,
+    OPT_SAVE_IMG = 1002
+};
+
 static const struct option long_options[] = {
         {"models",         required_argument, NULL, 'd'},
         {"det",            required_argument, NULL, '1'},
@@ -22,13 +27,17 @@ static const struct option long_options[] = {
         {"help",           no_argument,       NULL, 'h'},
         {"loopCount",      required_argument, NULL, 'l'},
         {"GPU",            required_argument, NULL, 'G'},
+        {"debug",          no_argument,       NULL, OPT_DEBUG},
+        {"save-img",       no_argument,       NULL, OPT_SAVE_IMG},
         {NULL,             no_argument,       NULL, 0}
 };
 
 const char *usageMsg = "(-d --models) (-1 --det) (-2 --cls) (-3 --rec) (-4 --keys) (-i --image)\n"\
                        "[-t --numThread] [-p --padding] [-s --maxSideLen]\n" \
                        "[-b --boxScoreThresh] [-o --boxThresh] [-u --unClipRatio]\n" \
-                       "[-a --noAngle] [-A --mostAngle] [-G --GPU]\n\n";
+                       "[-a --noAngle] [-A --mostAngle] [-G --GPU]\n" \
+                       "[--save-img] [--debug]\n" \
+                       "Result: JSON printed to stdout only.\n\n";
 
 const char *requiredMsg = "-d --models: models directory.\n" \
                           "-1 --det: model file name of det.\n" \
@@ -44,13 +53,16 @@ const char *optionalMsg = "-t --numThread: value of numThread(int), default: 4\n
                           "-o --boxThresh: value of boxThresh(float), default: 0.3\n" \
                           "-u --unClipRatio: value of unClipRatio(float), default: 1.6\n" \
                           "-a --doAngle: Enable(1)/Disable(0) Angle Net, default: Enable\n" \
-                          "-A --mostAngle: Enable(1)/Disable(0) Most Possible AngleIndex, default: Enable\n\n" \
-                          "-G --GPU: Disable(-1)/GPU0(0)/GPU1(1)/... Use Vulkan GPU accelerate, default: Disable(-1)\n\n";
+                          "-A --mostAngle: Enable(1)/Disable(0) Most Possible AngleIndex, default: Enable\n" \
+                          "-G --GPU: Disable(-1)/GPU0(0)/GPU1(1)/... Use Vulkan GPU accelerate, default: Disable(-1)\n" \
+                          "--save-img: also write <image>-result.jpg with boxes drawn, default: off\n" \
+                          "--debug: detailed logs to stderr (stdout stays a single JSON), default: off\n\n";
 
 const char *otherMsg = "-v --version: show version\n" \
-                       "-h --help: print this help\n\n";
+                       "-h --help: print this help\n" \
+                       "Exit codes: 0 success (JSON code 100/101), 1 error (JSON code 200/201/202)\n\n";
 
 const char *example1Msg = "Example1: %s --models models --det det.onnx --cls cls.onnx --rec rec.onnx --keys keys.txt --image 1.jpg  --GPU 0\n";
-const char *example2Msg = "Example2: %s -d models -1 det.onnx -2 cls.onnx -3 rec.onnx -4 keys.txt -i 1.jpg -t 4 -p 50 -s 0 -b 0.6 -o 0.3 -u 2.0 -a 1 -A 1 -G 0\n";
+const char *example2Msg = "Example2: %s -d models -1 det.onnx -2 cls.onnx -3 rec.onnx -4 keys.txt -i 1.jpg -t 4 -p 50 -s 1024 -b 0.5 -o 0.3 -u 1.6 -a 1 -A 1 -G -1\n";
 
 #endif //__MAIN_H__

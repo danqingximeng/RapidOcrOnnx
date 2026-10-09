@@ -16,8 +16,6 @@ public:
 
     void initLogger(bool isConsole, bool isPartImg, bool isResultImg);
 
-    void enableResultTxt(const char *path, const char *imgName);
-
     void setGpuIndex(int gpuIndex);
 
     bool initModels(const std::string &detPath, const std::string &clsPath,

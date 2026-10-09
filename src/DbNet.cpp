@@ -12,10 +12,10 @@ void DbNet::setGpuIndex(int gpuIndex) {
         cuda_options.do_copy_in_default_stream = 1;
 
         sessionOptions.AppendExecutionProvider_CUDA(cuda_options);
-        printf("det try to use GPU%d\n", gpuIndex);
+        fprintf(stderr, "det try to use GPU%d\n", gpuIndex);
     }
     else {
-        printf("det use CPU\n");
+        fprintf(stderr, "det use CPU\n");
     }
 #endif
 }

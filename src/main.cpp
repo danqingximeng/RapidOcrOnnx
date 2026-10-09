@@ -5,9 +5,12 @@
 #include "version.h"
 #include "OcrLite.h"
 #include "OcrUtils.h"
+#include "nlohmann/json.hpp"
 #ifdef _WIN32
 #include <windows.h>
 #endif
+
+using json = nlohmann::json;
 
 void printHelp(FILE *out, char *argv0) {
     fprintf(out, " ------- Usage -------\n");
@@ -23,10 +26,18 @@ void printHelp(FILE *out, char *argv0) {
     fprintf(out, example2Msg, argv0);
 }
 
+static void printErrorJson(int code, const std::string &message) {
+    json out;
+    out["code"] = code;
+    out["message"] = message;
+    printf("%s\n", out.dump().c_str());
+    fflush(stdout);
+}
+
 int main(int argc, char **argv) {
     if (argc <= 1) {
         printHelp(stderr, argv[0]);
-        return -1;
+        return 1;
     }
 #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
@@ -44,79 +55,58 @@ int main(int argc, char **argv) {
     bool mostAngle = true;
     int flagMostAngle = 1;
     int flagGpu = -1;
+    bool debug = false;
+    bool saveImg = false;
 
     int opt;
     int optionIndex = 0;
     while ((opt = getopt_long(argc, argv, "d:1:2:3:4:i:t:p:s:b:o:u:a:A:G:v:h", long_options, &optionIndex)) != -1) {
-        //printf("option(-%c)=%s\n", opt, optarg);
         switch (opt) {
             case 'd':
                 modelsDir = optarg;
-                printf("modelsPath=%s\n", modelsDir.c_str());
                 break;
             case '1':
                 modelDetPath = modelsDir + "/" + optarg;
-                printf("model det path=%s\n", modelDetPath.c_str());
                 break;
             case '2':
                 modelClsPath = modelsDir + "/" + optarg;
-                printf("model cls path=%s\n", modelClsPath.c_str());
                 break;
             case '3':
                 modelRecPath = modelsDir + "/" + optarg;
-                printf("model rec path=%s\n", modelRecPath.c_str());
                 break;
             case '4':
                 keysPath = modelsDir + "/" + optarg;
-                printf("keys path=%s\n", keysPath.c_str());
                 break;
             case 'i':
                 imgPath.assign(optarg);
                 imgDir.assign(imgPath.substr(0, imgPath.find_last_of('/') + 1));
                 imgName.assign(imgPath.substr(imgPath.find_last_of('/') + 1));
-                printf("imgDir=%s, imgName=%s\n", imgDir.c_str(), imgName.c_str());
                 break;
             case 't':
                 numThread = (int) strtol(optarg, NULL, 10);
-                //printf("numThread=%d\n", numThread);
                 break;
             case 'p':
                 padding = (int) strtol(optarg, NULL, 10);
-                //printf("padding=%d\n", padding);
                 break;
             case 's':
                 maxSideLen = (int) strtol(optarg, NULL, 10);
-                //printf("maxSideLen=%d\n", maxSideLen);
                 break;
             case 'b':
                 boxScoreThresh = strtof(optarg, NULL);
-                //printf("boxScoreThresh=%f\n", boxScoreThresh);
                 break;
             case 'o':
                 boxThresh = strtof(optarg, NULL);
-                //printf("boxThresh=%f\n", boxThresh);
                 break;
             case 'u':
                 unClipRatio = strtof(optarg, NULL);
-                //printf("unClipRatio=%f\n", unClipRatio);
                 break;
             case 'a':
                 flagDoAngle = (int) strtol(optarg, NULL, 10);
-                if (flagDoAngle == 0) {
-                    doAngle = false;
-                } else {
-                    doAngle = true;
-                }
-                //printf("doAngle=%d\n", doAngle);
+                doAngle = (flagDoAngle != 0);
                 break;
             case 'A':
                 flagMostAngle = (int) strtol(optarg, NULL, 10);
-                if (flagMostAngle == 0) {
-                    mostAngle = false;
-                } else {
-                    mostAngle = true;
-                }
-                //printf("mostAngle=%d\n", mostAngle);
+                mostAngle = (flagMostAngle != 0);
                 break;
             case 'v':
                 printf("%s\n", VERSION);
@@ -127,43 +117,49 @@ int main(int argc, char **argv) {
             case 'G':
                 flagGpu = (int) strtol(optarg, NULL, 10);
                 break;
+            case OPT_DEBUG:
+                debug = true;
+                break;
+            case OPT_SAVE_IMG:
+                saveImg = true;
+                break;
             default:
-                printf("other option %c :%s\n", opt, optarg);
+                fprintf(stderr, "unknown option\n");
+                return 1;
         }
     }
-    bool hasTargetImgFile = isFileExists(imgPath);
-    if (!hasTargetImgFile) {
-        fprintf(stderr, "Target image not found: %s\n", imgPath.c_str());
-        return -1;
+
+    if (imgPath.empty()) {
+        printErrorJson(202, "missing required parameter: -i/--image");
+        return 1;
     }
-    bool hasModelDetFile = isFileExists(modelDetPath);
-    if (!hasModelDetFile) {
-        fprintf(stderr, "Model det file not found: %s\n", modelDetPath.c_str());
-        return -1;
+    if (!isFileExists(imgPath)) {
+        printErrorJson(200, "image not found: " + imgPath);
+        return 1;
     }
-    bool hasModelClsFile = isFileExists(modelClsPath);
-    if (!hasModelClsFile) {
-        fprintf(stderr, "Model cls file not found: %s\n", modelClsPath.c_str());
-        return -1;
+    if (modelDetPath.empty() || !isFileExists(modelDetPath)) {
+        printErrorJson(202, "det model file not found: " + modelDetPath);
+        return 1;
     }
-    bool hasModelRecFile = isFileExists(modelRecPath);
-    if (!hasModelRecFile) {
-        fprintf(stderr, "Model rec file not found: %s\n", modelRecPath.c_str());
-        return -1;
+    if (modelClsPath.empty() || !isFileExists(modelClsPath)) {
+        printErrorJson(202, "cls model file not found: " + modelClsPath);
+        return 1;
     }
-    bool hasKeysFile = isFileExists(keysPath);
-    if (!hasKeysFile) {
-        fprintf(stderr, "keys file not found: %s\n", keysPath.c_str());
-        return -1;
+    if (modelRecPath.empty() || !isFileExists(modelRecPath)) {
+        printErrorJson(202, "rec model file not found: " + modelRecPath);
+        return 1;
     }
+    if (keysPath.empty() || !isFileExists(keysPath)) {
+        printErrorJson(202, "keys file not found: " + keysPath);
+        return 1;
+    }
+
     OcrLite ocrLite;
     ocrLite.setNumThread(numThread);
     ocrLite.initLogger(
-            true,//isOutputConsole
+            debug,//isOutputConsole, logs to stderr so stdout stays pure JSON
             false,//isOutputPartImg
-            true);//isOutputResultImg
-
-    ocrLite.enableResultTxt(imgDir.c_str(), imgName.c_str());
+            saveImg);//isOutputResultImg
     ocrLite.setGpuIndex(flagGpu);
     ocrLite.Logger("=====Input Params=====\n");
     ocrLite.Logger(
@@ -171,11 +167,72 @@ int main(int argc, char **argv) {
             numThread, padding, maxSideLen, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle,
             flagGpu);
 
-    ocrLite.initModels(modelDetPath, modelClsPath, modelRecPath, keysPath);
+    OcrResult result;
+    try {
+        if (!ocrLite.initModels(modelDetPath, modelClsPath, modelRecPath, keysPath)) {
+            printErrorJson(201, "init models failed");
+            return 1;
+        }
+        result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), padding, maxSideLen,
+                                boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
+    } catch (const std::exception &e) {
+        printErrorJson(201, e.what());
+        return 1;
+    }
 
-    OcrResult result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), padding, maxSideLen,
-                                      boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
-    ocrLite.Logger("%s\n", result.strRes.c_str());
+    json data = json::array();
+    double clsTotal = 0.0;
+    double recTotal = 0.0;
+    for (const auto &block: result.textBlocks) {
+        json item;
+        item["text"] = block.text;
+        json box = json::array();
+        for (const auto &p: block.boxPoint) {
+            box.push_back(json::array({p.x, p.y}));
+        }
+        item["box"] = box;
+        item["boxScore"] = block.boxScore;
+        float scoreSum = 0.0f;
+        for (float s: block.charScores) {
+            scoreSum += s;
+        }
+        item["score"] = block.charScores.empty() ? 0.0f
+                                                 : scoreSum / (float) block.charScores.size();
+        item["scores"] = block.charScores;
+        item["angle"] = block.angleIndex;
+        item["angleScore"] = block.angleScore;
+        item["time"] = {{"cls", block.angleTime}, {"rec", block.crnnTime}};
+        clsTotal += block.angleTime;
+        recTotal += block.crnnTime;
+        data.push_back(item);
+    }
+
+    json out;
+    out["code"] = result.textBlocks.empty() ? 101 : 100;
+    out["data"] = data;
+    out["time"] = {{"det",   result.dbNetTime},
+                   {"cls",   clsTotal},
+                   {"rec",   recTotal},
+                   {"total", result.detectTime}};
+    out["meta"] = {
+            {"version", VERSION},
+            {"image",   imgPath},
+            {"models",  {{"det", modelDetPath},
+                         {"cls", modelClsPath},
+                         {"rec", modelRecPath},
+                         {"keys", keysPath}}},
+            {"params",  {{"numThread",      numThread},
+                         {"padding",        padding},
+                         {"maxSideLen",     maxSideLen},
+                         {"boxScoreThresh", boxScoreThresh},
+                         {"boxThresh",      boxThresh},
+                         {"unClipRatio",    unClipRatio},
+                         {"doAngle",        flagDoAngle},
+                         {"mostAngle",      flagMostAngle},
+                         {"gpu",            flagGpu}}}
+    };
+    printf("%s\n", out.dump().c_str());
+    fflush(stdout);
     return 0;
 }
 
