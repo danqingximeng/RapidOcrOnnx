@@ -46,6 +46,10 @@ void OcrLiteImpl::initLogger(bool isConsole, bool isPartImg, bool isResultImg) {
     isOutputResultImg = isResultImg;
 }
 
+void OcrLiteImpl::setResultImgPath(const std::string &imgPath) {
+    resultImgPath = imgPath;
+}
+
 void OcrLiteImpl::setGpuIndex(int gpuIndex) {
     dbNet.setGpuIndex(gpuIndex);
     angleNet.setGpuIndex(gpuIndex);
@@ -276,7 +280,9 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
 
     //Save result.jpg
     if (isOutputResultImg) {
-        std::string resultImgFile = getResultImgFilePath(path, imgName);
+        std::string resultImgFile = resultImgPath.empty()
+                                    ? getResultImgFilePath(path, imgName)
+                                    : resultImgPath;
         imwrite(resultImgFile, textBoxImg);
     }
 

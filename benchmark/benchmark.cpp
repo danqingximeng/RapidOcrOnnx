@@ -47,27 +47,30 @@ int main(int argc, char **argv) {
 
     int opt;
     int optionIndex = 0;
-    while ((opt = getopt_long(argc, argv, "d:1:2:3:4:i:t:p:s:b:o:u:a:A:G:v:h:l", long_options, &optionIndex)) != -1) {
+    auto modelPath = [&modelsDir](const char *arg) {
+        return modelsDir.empty() ? std::string(arg) : modelsDir + "/" + arg;
+    };
+    while ((opt = getopt_long(argc, argv, "i:hv", long_options, &optionIndex)) != -1) {
         //printf("option(-%c)=%s\n", opt, optarg);
         switch (opt) {
-            case 'd':
+            case OPT_DIR:
                 modelsDir = optarg;
                 printf("modelsPath=%s\n", modelsDir.c_str());
                 break;
-            case '1':
-                modelDetPath = modelsDir + "/" + optarg;
+            case OPT_DET:
+                modelDetPath = modelPath(optarg);
                 printf("model det path=%s\n", modelDetPath.c_str());
                 break;
-            case '2':
-                modelClsPath = modelsDir + "/" + optarg;
+            case OPT_CLS:
+                modelClsPath = modelPath(optarg);
                 printf("model cls path=%s\n", modelClsPath.c_str());
                 break;
-            case '3':
-                modelRecPath = modelsDir + "/" + optarg;
+            case OPT_REC:
+                modelRecPath = modelPath(optarg);
                 printf("model rec path=%s\n", modelRecPath.c_str());
                 break;
-            case '4':
-                keysPath = modelsDir + "/" + optarg;
+            case OPT_KEY:
+                keysPath = modelPath(optarg);
                 printf("keys path=%s\n", keysPath.c_str());
                 break;
             case 'i':

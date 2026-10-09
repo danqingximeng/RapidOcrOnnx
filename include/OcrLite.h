@@ -16,6 +16,8 @@ public:
 
     void initLogger(bool isConsole, bool isPartImg, bool isResultImg);
 
+    void setResultImgPath(const std::string &imgPath);
+
     void setGpuIndex(int gpuIndex);
 
     bool initModels(const std::string &detPath, const std::string &clsPath,

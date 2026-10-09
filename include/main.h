@@ -5,64 +5,69 @@
 
 enum {
     OPT_DEBUG = 1001,
-    OPT_SAVE_IMG = 1002
+    OPT_SAVE_IMG = 1002,
+    OPT_DET = 1003,
+    OPT_CLS = 1004,
+    OPT_REC = 1005,
+    OPT_KEY = 1006,
+    OPT_DIR = 1007
 };
 
 static const struct option long_options[] = {
-        {"models",         required_argument, NULL, 'd'},
-        {"det",            required_argument, NULL, '1'},
-        {"cls",            required_argument, NULL, '2'},
-        {"rec",            required_argument, NULL, '3'},
-        {"keys",           required_argument, NULL, '4'},
+        {"dir",            required_argument, NULL, OPT_DIR},
+        {"det",            required_argument, NULL, OPT_DET},
+        {"cls",            required_argument, NULL, OPT_CLS},
+        {"rec",            required_argument, NULL, OPT_REC},
+        {"key",            required_argument, NULL, OPT_KEY},
         {"image",          required_argument, NULL, 'i'},
-        {"numThread",      required_argument, NULL, 't'},
+        {"thread",         required_argument, NULL, 't'},
         {"padding",        required_argument, NULL, 'p'},
-        {"maxSideLen",     required_argument, NULL, 's'},
-        {"boxScoreThresh", required_argument, NULL, 'b'},
-        {"boxThresh",      required_argument, NULL, 'o'},
-        {"unClipRatio",    required_argument, NULL, 'u'},
-        {"doAngle",        required_argument, NULL, 'a'},
-        {"mostAngle",      required_argument, NULL, 'A'},
+        {"max-side",       required_argument, NULL, 's'},
+        {"box-score",      required_argument, NULL, 'b'},
+        {"thresh",         required_argument, NULL, 'o'},
+        {"unclip-ratio",   required_argument, NULL, 'u'},
+        {"do-angle",       required_argument, NULL, 'a'},
+        {"most-angle",     required_argument, NULL, 'A'},
         {"version",        no_argument,       NULL, 'v'},
         {"help",           no_argument,       NULL, 'h'},
-        {"loopCount",      required_argument, NULL, 'l'},
-        {"GPU",            required_argument, NULL, 'G'},
+        {"loop",           required_argument, NULL, 'l'},
+        {"gpu",            required_argument, NULL, 'G'},
         {"debug",          no_argument,       NULL, OPT_DEBUG},
-        {"save-img",       no_argument,       NULL, OPT_SAVE_IMG},
+        {"save-img",       optional_argument, NULL, OPT_SAVE_IMG},
         {NULL,             no_argument,       NULL, 0}
 };
 
-const char *usageMsg = "(-d --models) (-1 --det) (-2 --cls) (-3 --rec) (-4 --keys) (-i --image)\n"\
-                       "[-t --numThread] [-p --padding] [-s --maxSideLen]\n" \
-                       "[-b --boxScoreThresh] [-o --boxThresh] [-u --unClipRatio]\n" \
-                       "[-a --noAngle] [-A --mostAngle] [-G --GPU]\n" \
+const char *usageMsg = "(-i --image) (--det) (--cls) (--rec) (--key) [--dir]\n"\
+                       "[--thread] [--padding] [--max-side] [--box-score] [--thresh] [--unclip-ratio]\n" \
+                       "[--do-angle] [--most-angle] [--gpu]\n" \
                        "[--save-img] [--debug]\n" \
                        "Result: JSON printed to stdout only.\n\n";
 
-const char *requiredMsg = "-d --models: models directory.\n" \
-                          "-1 --det: model file name of det.\n" \
-                          "-2 --cls: model file name of cls.\n" \
-                          "-3 --rec: model file name of rec.\n" \
-						  "-4 --keys: keys file name.\n" \
-                          "-i --image: path of target image.\n\n";
+const char *requiredMsg = "-i --image: path of target image.\n" \
+                          "--det: path of det model file.\n" \
+                          "--cls: path of cls model file.\n" \
+                          "--rec: path of rec model file.\n" \
+                          "--key: path of keys file.\n\n";
 
-const char *optionalMsg = "-t --numThread: value of numThread(int), default: 4\n" \
-                          "-p --padding: value of padding(int), default: 50\n" \
-                          "-s --maxSideLen: Long side of picture for resize(int), default: 1024\n" \
-                          "-b --boxScoreThresh: value of boxScoreThresh(float), default: 0.5\n" \
-                          "-o --boxThresh: value of boxThresh(float), default: 0.3\n" \
-                          "-u --unClipRatio: value of unClipRatio(float), default: 1.6\n" \
-                          "-a --doAngle: Enable(1)/Disable(0) Angle Net, default: Enable\n" \
-                          "-A --mostAngle: Enable(1)/Disable(0) Most Possible AngleIndex, default: Enable\n" \
-                          "-G --GPU: Disable(-1)/GPU0(0)/GPU1(1)/... Use Vulkan GPU accelerate, default: Disable(-1)\n" \
-                          "--save-img: also write <image>-result.jpg with boxes drawn, default: off\n" \
+const char *optionalMsg = "--dir: directory prefix; when set, --det/--cls/--rec/--key take file names inside it\n" \
+                          "--thread: value of numThread(int), default: 4\n" \
+                          "--padding: value of padding(int), default: 50\n" \
+                          "--max-side: Long side of picture for resize(int), default: 1024\n" \
+                          "--box-score: box confidence threshold(float), default: 0.5\n" \
+                          "--thresh: prob map binarization threshold(float), default: 0.3\n" \
+                          "--unclip-ratio: box expansion ratio(float), default: 1.6\n" \
+                          "--do-angle: Enable(1)/Disable(0) Angle Net, default: Enable\n" \
+                          "--most-angle: Enable(1)/Disable(0) Most Possible AngleIndex, default: Enable\n" \
+                          "--gpu: Disable(-1)/GPU0(0)/GPU1(1)/... Use Vulkan GPU accelerate, default: Disable(-1)\n" \
+                          "--save-img: write the box-drawn image, default <image>-result.jpg," \
+                          " or use --save-img=PATH to choose the path\n" \
                           "--debug: detailed logs to stderr (stdout stays a single JSON), default: off\n\n";
 
 const char *otherMsg = "-v --version: show version\n" \
                        "-h --help: print this help\n" \
                        "Exit codes: 0 success (JSON code 100/101), 1 error (JSON code 200/201/202)\n\n";
 
-const char *example1Msg = "Example1: %s --models models --det det.onnx --cls cls.onnx --rec rec.onnx --keys keys.txt --image 1.jpg  --GPU 0\n";
-const char *example2Msg = "Example2: %s -d models -1 det.onnx -2 cls.onnx -3 rec.onnx -4 keys.txt -i 1.jpg -t 4 -p 50 -s 1024 -b 0.5 -o 0.3 -u 1.6 -a 1 -A 1 -G -1\n";
+const char *example1Msg = "Example1: %s --det /models/small_det.onnx --cls /models/cls.onnx --rec /models/small_rec.onnx --key /models/keys.txt --image 1.jpg\n";
+const char *example2Msg = "Example2: %s --dir models --det small_det.onnx --cls cls.onnx --rec small_rec.onnx --key keys.txt -i 1.jpg --thread 4 --padding 50 --max-side 1024 --box-score 0.5 --thresh 0.3 --unclip-ratio 1.6 --do-angle 1 --most-angle 1 --gpu -1\n";
 
 #endif //__MAIN_H__

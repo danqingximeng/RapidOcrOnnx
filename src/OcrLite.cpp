@@ -18,6 +18,10 @@ void OcrLite::initLogger(bool isConsole, bool isPartImg, bool isResultImg) {
     pImpl->initLogger(isConsole, isPartImg, isResultImg);
 }
 
+void OcrLite::setResultImgPath(const std::string &imgPath) {
+    pImpl->setResultImgPath(imgPath);
+}
+
 void OcrLite::setGpuIndex(int gpuIndex) {
     pImpl->setGpuIndex(gpuIndex);
 }

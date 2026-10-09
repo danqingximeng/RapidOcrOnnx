@@ -57,25 +57,29 @@ int main(int argc, char **argv) {
     int flagGpu = -1;
     bool debug = false;
     bool saveImg = false;
+    std::string saveImgPath;
 
     int opt;
     int optionIndex = 0;
-    while ((opt = getopt_long(argc, argv, "d:1:2:3:4:i:t:p:s:b:o:u:a:A:G:v:h", long_options, &optionIndex)) != -1) {
+    auto modelPath = [&modelsDir](const char *arg) {
+        return modelsDir.empty() ? std::string(arg) : modelsDir + "/" + arg;
+    };
+    while ((opt = getopt_long(argc, argv, "i:hv", long_options, &optionIndex)) != -1) {
         switch (opt) {
-            case 'd':
+            case OPT_DIR:
                 modelsDir = optarg;
                 break;
-            case '1':
-                modelDetPath = modelsDir + "/" + optarg;
+            case OPT_DET:
+                modelDetPath = modelPath(optarg);
                 break;
-            case '2':
-                modelClsPath = modelsDir + "/" + optarg;
+            case OPT_CLS:
+                modelClsPath = modelPath(optarg);
                 break;
-            case '3':
-                modelRecPath = modelsDir + "/" + optarg;
+            case OPT_REC:
+                modelRecPath = modelPath(optarg);
                 break;
-            case '4':
-                keysPath = modelsDir + "/" + optarg;
+            case OPT_KEY:
+                keysPath = modelPath(optarg);
                 break;
             case 'i':
                 imgPath.assign(optarg);
@@ -122,9 +126,12 @@ int main(int argc, char **argv) {
                 break;
             case OPT_SAVE_IMG:
                 saveImg = true;
+                if (optarg != NULL) {
+                    saveImgPath = optarg;
+                }
                 break;
             default:
-                fprintf(stderr, "unknown option\n");
+                printErrorJson(202, "invalid option");
                 return 1;
         }
     }
@@ -160,6 +167,9 @@ int main(int argc, char **argv) {
             debug,//isOutputConsole, logs to stderr so stdout stays pure JSON
             false,//isOutputPartImg
             saveImg);//isOutputResultImg
+    if (!saveImgPath.empty()) {
+        ocrLite.setResultImgPath(saveImgPath);
+    }
     ocrLite.setGpuIndex(flagGpu);
     ocrLite.Logger("=====Input Params=====\n");
     ocrLite.Logger(

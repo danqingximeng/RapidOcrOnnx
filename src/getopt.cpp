@@ -128,6 +128,13 @@ static int _getopt_(int argc, char *const argv[],
                                 optarg = (char *) pos_eq + 1;
                             }
                             break;
+                        case optional_argument:
+                            if (pos_eq == NULL) {
+                                optarg = 0;
+                            } else {
+                                optarg = (char *) pos_eq + 1;
+                            }
+                            break;
                     }
                     ++optind;
                     nextchar = 0;
