@@ -34,8 +34,9 @@ int main(int argc, char **argv) {
     std::string imgPath, imgDir, imgName;
     int numThread = 4;
     int loopCount = 1;
-    int padding = 50;
     int maxSideLen = 1024;
+    int minSideLen = 640;
+    int maxSideLimit = 8192;
     float boxScoreThresh = 0.5f;
     float boxThresh = 0.3f;
     float unClipRatio = 1.5f;
@@ -83,13 +84,15 @@ int main(int argc, char **argv) {
                 numThread = (int) strtol(optarg, NULL, 10);
                 //printf("numThread=%d\n", numThread);
                 break;
-            case 'p':
-                padding = (int) strtol(optarg, NULL, 10);
-                //printf("padding=%d\n", padding);
-                break;
             case 's':
                 maxSideLen = (int) strtol(optarg, NULL, 10);
                 //printf("maxSideLen=%d\n", maxSideLen);
+                break;
+            case OPT_MIN_SIDE:
+                minSideLen = (int) strtol(optarg, NULL, 10);
+                break;
+            case OPT_MAX_SIDE_LIMIT:
+                maxSideLimit = (int) strtol(optarg, NULL, 10);
                 break;
             case 'b':
                 boxScoreThresh = strtof(optarg, NULL);
@@ -172,14 +175,14 @@ int main(int argc, char **argv) {
 
     ocrLite.setGpuIndex(flagGpu);
     printf("=====Input Params=====\n");
-    printf("numThread(%d),padding(%d),maxSideLen(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
-            numThread, padding, maxSideLen, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle,
+    printf("numThread(%d),maxSideLen(%d),minSideLen(%d),maxSideLimit(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
+            numThread, maxSideLen, minSideLen, maxSideLimit, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle,
             flagGpu);
     bool initModelsRet = ocrLite.initModels(modelDetPath, modelClsPath, modelRecPath, keysPath);
     if (!initModelsRet) return -1;
     printf("=====Warmup 2 cycles=====\n");
     for (int i = 0; i < 2; ++i) {
-        OcrResult result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), padding, maxSideLen,
+        OcrResult result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), maxSideLen, minSideLen, maxSideLimit,
                                           boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
         printf("Warmup time(%f)\n", result.detectTime);
     }
@@ -191,7 +194,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < loopCount; ++i) {
         printf("=====Cycle:%d Take Time(ms)=====\n", i + 1);
         OcrResult ocrResult = ocrLite.detect(imgDir.c_str(), imgName.c_str(),
-                                             padding, maxSideLen,
+                                             maxSideLen, minSideLen, maxSideLimit,
                                              boxScoreThresh, boxThresh,
                                              unClipRatio, doAngle, mostAngle);
         double dbTime = ocrResult.dbNetTime;

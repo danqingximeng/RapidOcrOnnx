@@ -83,55 +83,38 @@ void OcrLiteImpl::Logger(const char *format, ...) {
     fprintf(stderr, "%s", loggerBuffer);
 }
 
-cv::Mat makePadding(cv::Mat &src, const int padding) {
-    if (padding <= 0) return src;
-    cv::Scalar paddingScalar = {255, 255, 255};
-    cv::Mat paddingSrc;
-    cv::copyMakeBorder(src, paddingSrc, padding, padding, padding, padding, cv::BORDER_ISOLATED, paddingScalar);
-    return paddingSrc;
-}
-
 OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
-                          const int padding, const int maxSideLen,
+                          const int maxSideLen, const int minSideLen, const int maxSideLimit,
                           float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle) {
     std::string imgFile = getSrcImgFilePath(path, imgName);
     cv::Mat originSrc = imread(imgFile, cv::IMREAD_COLOR);//default : BGR
     if (originSrc.empty()) {
         throw std::runtime_error("image load failed: " + imgFile);
     }
-    int originMaxSide = (std::max)(originSrc.cols, originSrc.rows);
-    int resize;
-    if (maxSideLen <= 0 || maxSideLen > originMaxSide) {
-        resize = originMaxSide;
-    } else {
-        resize = maxSideLen;
-    }
-    resize += 2 * padding;
-    cv::Rect paddingRect(padding, padding, originSrc.cols, originSrc.rows);
-    cv::Mat paddingSrc = makePadding(originSrc, padding);
-    ScaleParam scale = getScaleParam(paddingSrc, resize);
+    ScaleParam scale = getScaleParam(originSrc, maxSideLen, minSideLen, maxSideLimit);
     OcrResult result;
-    result = detect(path, imgName, paddingSrc, paddingRect, scale,
+    result = detect(path, imgName, originSrc, scale,
                     boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     return result;
 }
 
 
 OcrResult OcrLiteImpl::detectImageBytes(const uint8_t *data, const long dataLength, const int grey,
-                                    const int padding, const int maxSideLen,
+                                    const int maxSideLen, const int minSideLen, const int maxSideLimit,
                                     float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle,
                                     bool mostAngle) {
     std::vector<uint8_t> vecData(data, data + dataLength);
     cv::Mat originSrc = cv::imdecode(vecData, grey == 1 ? cv::IMREAD_GRAYSCALE : cv::IMREAD_COLOR);//default : BGR
     OcrResult result;
-    result = detect(originSrc, padding, maxSideLen,
+    result = detect(originSrc, maxSideLen, minSideLen, maxSideLimit,
                     boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     return result;
 
 }
 
-OcrResult OcrLiteImpl::detectBitmap(uint8_t *bitmapData, int width, int height, int channels, int padding,
-                                int maxSideLen, float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle,
+OcrResult OcrLiteImpl::detectBitmap(uint8_t *bitmapData, int width, int height, int channels,
+                                int maxSideLen, int minSideLen, int maxSideLimit,
+                                float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle,
                                 bool mostAngle) {
     cv::Mat originSrc(height, width, CV_8UC(channels), bitmapData);
     if (channels > 3) {
@@ -140,28 +123,17 @@ OcrResult OcrLiteImpl::detectBitmap(uint8_t *bitmapData, int width, int height, 
         cv::cvtColor(originSrc, originSrc, cv::COLOR_RGB2BGR);
     }
     OcrResult result;
-    result = detect(originSrc, padding, maxSideLen,
+    result = detect(originSrc, maxSideLen, minSideLen, maxSideLimit,
                     boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     return result;
 }
 
-
-OcrResult OcrLiteImpl::detect(const cv::Mat &mat, int padding, int maxSideLen, float boxScoreThresh, float boxThresh,
-                          float unClipRatio, bool doAngle, bool mostAngle) {
+OcrResult OcrLiteImpl::detect(const cv::Mat &mat, int maxSideLen, int minSideLen, int maxSideLimit,
+                          float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle) {
     cv::Mat originSrc = mat;
-    int originMaxSide = (std::max)(originSrc.cols, originSrc.rows);
-    int resize;
-    if (maxSideLen <= 0 || maxSideLen > originMaxSide) {
-        resize = originMaxSide;
-    } else {
-        resize = maxSideLen;
-    }
-    resize += 2 * padding;
-    cv::Rect paddingRect(padding, padding, originSrc.cols, originSrc.rows);
-    cv::Mat paddingSrc = makePadding(originSrc, padding);
-    ScaleParam scale = getScaleParam(paddingSrc, resize);
+    ScaleParam scale = getScaleParam(originSrc, maxSideLen, minSideLen, maxSideLimit);
     OcrResult result;
-    result = detect(NULL, NULL, paddingSrc, paddingRect, scale,
+    result = detect(NULL, NULL, originSrc, scale,
                     boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     return result;
 }
@@ -182,10 +154,10 @@ std::vector<cv::Mat> OcrLiteImpl::getPartImages(cv::Mat &src, std::vector<TextBo
 }
 
 OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
-                          cv::Mat &src, cv::Rect &originRect, ScaleParam &scale,
+                          cv::Mat &src, ScaleParam &scale,
                           float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle) {
 
-    cv::Mat textBoxPaddingImg = src.clone();
+    cv::Mat textBoxImg = src.clone();
     int thickness = getThickness(src);
 
     Logger("=====Start detect=====\n");
@@ -203,7 +175,7 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
     sortTextBoxesByReadingOrder(textBoxes);
 
     for (size_t i = 0; i < textBoxes.size(); ++i) {
-        Logger("TextBox[%d](+padding)[score(%f),[x: %d, y: %d], [x: %d, y: %d], [x: %d, y: %d], [x: %d, y: %d]]\n", i,
+        Logger("TextBox[%d][score(%f),[x: %d, y: %d], [x: %d, y: %d], [x: %d, y: %d], [x: %d, y: %d]]\n", i,
                textBoxes[i].score,
                textBoxes[i].boxPoint[0].x, textBoxes[i].boxPoint[0].y,
                textBoxes[i].boxPoint[1].x, textBoxes[i].boxPoint[1].y,
@@ -212,7 +184,7 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
     }
 
     Logger("---------- step: drawTextBoxes ----------\n");
-    drawTextBoxes(textBoxPaddingImg, textBoxes, thickness);
+    drawTextBoxes(textBoxImg, textBoxes, thickness);
 
     //---------- getPartImages ----------
     std::vector<cv::Mat> partImages = getPartImages(src, textBoxes, path, imgName);
@@ -252,13 +224,7 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
 
     std::vector<TextBlock> textBlocks;
     for (size_t i = 0; i < textLines.size(); ++i) {
-        std::vector<cv::Point> boxPoint = std::vector<cv::Point>(4);
-        int padding = originRect.x;//padding conversion
-        boxPoint[0] = cv::Point(textBoxes[i].boxPoint[0].x - padding, textBoxes[i].boxPoint[0].y - padding);
-        boxPoint[1] = cv::Point(textBoxes[i].boxPoint[1].x - padding, textBoxes[i].boxPoint[1].y - padding);
-        boxPoint[2] = cv::Point(textBoxes[i].boxPoint[2].x - padding, textBoxes[i].boxPoint[2].y - padding);
-        boxPoint[3] = cv::Point(textBoxes[i].boxPoint[3].x - padding, textBoxes[i].boxPoint[3].y - padding);
-        TextBlock textBlock{boxPoint, textBoxes[i].score, angles[i].index, angles[i].score,
+        TextBlock textBlock{textBoxes[i].boxPoint, textBoxes[i].score, angles[i].index, angles[i].score,
                             angles[i].time, textLines[i].text, textLines[i].charScores, textLines[i].time,
                             angles[i].time + textLines[i].time};
         textBlocks.emplace_back(textBlock);
@@ -268,15 +234,6 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
     double fullTime = endTime - startTime;
     Logger("=====End detect=====\n");
     Logger("FullDetectTime(%fms)\n", fullTime);
-
-    //cropped to original size
-    cv::Mat textBoxImg;
-
-    if (originRect.x > 0 && originRect.y > 0) {
-        textBoxPaddingImg(originRect).copyTo(textBoxImg);
-    } else {
-        textBoxImg = textBoxPaddingImg;
-    }
 
     //Save result.jpg
     if (isOutputResultImg) {

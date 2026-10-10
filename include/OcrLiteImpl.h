@@ -29,16 +29,16 @@ public:
     void Logger(const char *format, ...);
 
     OcrResult detect(const char *path, const char *imgName,
-                     int padding, int maxSideLen,
+                     int maxSideLen, int minSideLen, int maxSideLimit,
                      float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
 
     OcrResult detect(const cv::Mat &mat,
-                     int padding, int maxSideLen,
+                     int maxSideLen, int minSideLen, int maxSideLimit,
                      float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
 
-    OcrResult detectImageBytes(const uint8_t *data, long dataLength, int grey, int padding, int maxSideLen,
+    OcrResult detectImageBytes(const uint8_t *data, long dataLength, int grey, int maxSideLen, int minSideLen, int maxSideLimit,
                                float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
-    OcrResult detectBitmap(uint8_t *bitmapData, int width, int height,int channels, int padding, int maxSideLen,
+    OcrResult detectBitmap(uint8_t *bitmapData, int width, int height,int channels, int maxSideLen, int minSideLen, int maxSideLimit,
                            float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
 
 private:
@@ -55,7 +55,7 @@ private:
                                        const char *path, const char *imgName);
 
     OcrResult detect(const char *path, const char *imgName,
-                     cv::Mat &src, cv::Rect &originRect, ScaleParam &scale,
+                     cv::Mat &src, ScaleParam &scale,
                      float boxScoreThresh = 0.6f, float boxThresh = 0.3f,
                      float unClipRatio = 2.0f, bool doAngle = true, bool mostAngle = true);
 };

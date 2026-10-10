@@ -1,6 +1,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <numeric>
+#include <cmath>
 #include "OcrUtils.h"
 #include "clipper.hpp"
 
@@ -17,48 +18,33 @@ std::wstring strToWstr(std::string str) {
     return wstr;
 }
 
-ScaleParam getScaleParam(cv::Mat &src, const float scale) {
+// Downscale-only three-clamp rule, aligned with PaddleOCR DetResizeForTest (round-to-32):
+// gate on maxSideLen, raise ratio via the minSideLen floor (never past 1.0), then apply
+// the maxSideLimit hard cap unconditionally so it also guards --max-side 0.
+ScaleParam getScaleParam(cv::Mat &src, int maxSideLen, int minSideLen, int maxSideLimit) {
     int srcWidth = src.cols;
     int srcHeight = src.rows;
-    int dstWidth = int((float) srcWidth * scale);
-    int dstHeight = int((float) srcHeight * scale);
-    if (dstWidth % 32 != 0) {
-        dstWidth = (dstWidth / 32 - 1) * 32;
-        dstWidth = (std::max)(dstWidth, 32);
+    int longSide = (std::max)(srcWidth, srcHeight);
+    int shortSide = (std::min)(srcWidth, srcHeight);
+
+    float ratio = 1.0f;
+    if (maxSideLen > 0 && longSide > maxSideLen) {
+        ratio = (float) maxSideLen / (float) longSide;
+        // short-side floor: shrink less, but never cross into upscaling
+        if (minSideLen > 0 && shortSide * ratio < minSideLen) {
+            ratio = (std::min)((float) minSideLen / (float) shortSide, 1.0f);
+        }
     }
-    if (dstHeight % 32 != 0) {
-        dstHeight = (dstHeight / 32 - 1) * 32;
-        dstHeight = (std::max)(dstHeight, 32);
+    if (maxSideLimit > 0 && longSide * ratio > maxSideLimit) {
+        ratio = (float) maxSideLimit / (float) longSide;
     }
+    int dstWidth = (int) ((float) srcWidth * ratio);
+    int dstHeight = (int) ((float) srcHeight * ratio);
+    dstWidth = (std::max)((int) std::round(dstWidth / 32.0) * 32, 32);
+    dstHeight = (std::max)((int) std::round(dstHeight / 32.0) * 32, 32);
     float scaleWidth = (float) dstWidth / (float) srcWidth;
     float scaleHeight = (float) dstHeight / (float) srcHeight;
     return {srcWidth, srcHeight, dstWidth, dstHeight, scaleWidth, scaleHeight};
-}
-
-ScaleParam getScaleParam(cv::Mat &src, const int targetSize) {
-    int srcWidth, srcHeight, dstWidth, dstHeight;
-    srcWidth = dstWidth = src.cols;
-    srcHeight = dstHeight = src.rows;
-
-    float ratio = 1.f;
-    if (srcWidth > srcHeight) {
-        ratio = float(targetSize) / float(srcWidth);
-    } else {
-        ratio = float(targetSize) / float(srcHeight);
-    }
-    dstWidth = int(float(srcWidth) * ratio);
-    dstHeight = int(float(srcHeight) * ratio);
-    if (dstWidth % 32 != 0) {
-        dstWidth = (dstWidth / 32) * 32;
-        dstWidth = (std::max)(dstWidth, 32);
-    }
-    if (dstHeight % 32 != 0) {
-        dstHeight = (dstHeight / 32) * 32;
-        dstHeight = (std::max)(dstHeight, 32);
-    }
-    float ratioWidth = (float) dstWidth / (float) srcWidth;
-    float ratioHeight = (float) dstHeight / (float) srcHeight;
-    return {srcWidth, srcHeight, dstWidth, dstHeight, ratioWidth, ratioHeight};
 }
 
 std::vector<cv::Point2f> getBox(const cv::RotatedRect &rect) {

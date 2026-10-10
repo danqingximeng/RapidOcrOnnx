@@ -91,6 +91,13 @@ static int _getopt_(int argc, char *const argv[],
                     int index_found = -1;
                     const struct option *optdef = 0;
                     while (longopts->name != 0) {
+                        size_t name_len = strlen(longopts->name);
+                        if (spec_len == name_len &&
+                            strncmp(spec_long, longopts->name, spec_len) == 0) {
+                            optdef = longopts;
+                            index_found = index_search;
+                            break;
+                        }
                         if (strncmp(spec_long, longopts->name, spec_len) == 0) {
                             if (optdef != 0) {
                                 if (opterr) {

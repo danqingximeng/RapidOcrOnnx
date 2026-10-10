@@ -26,11 +26,11 @@ public:
     void Logger(const char *format, ...);
 
     OcrResult detect(const char *path, const char *imgName,
-                     int padding, int maxSideLen,
+                     int maxSideLen, int minSideLen, int maxSideLimit,
                      float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
 
     OcrResult detect(const cv::Mat &mat,
-                     int padding, int maxSideLen,
+                     int maxSideLen, int minSideLen, int maxSideLimit,
                      float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
 
 private:

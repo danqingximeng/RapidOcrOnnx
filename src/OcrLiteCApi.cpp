@@ -34,11 +34,14 @@ OcrDetect(OCR_HANDLE handle, const char *imgPath, const char *imgName, OCR_PARAM
         return FALSE;
 
     OCR_PARAM Param = *pParam;
-    if (Param.padding == 0)
-        Param.padding = 50;
-
     if (Param.maxSideLen == 0)
         Param.maxSideLen = 1024;
+
+    if (Param.minSideLen == 0)
+        Param.minSideLen = 640;
+
+    if (Param.maxSideLimit == 0)
+        Param.maxSideLimit = 8192;
 
     if (Param.boxScoreThresh == 0)
         Param.boxScoreThresh = 0.6;
@@ -55,7 +58,7 @@ OcrDetect(OCR_HANDLE handle, const char *imgPath, const char *imgName, OCR_PARAM
     if (Param.mostAngle == 0)
         Param.mostAngle = 1;
 
-    OcrResult result = pOcrObj->OcrObj.detect(imgPath, imgName, Param.padding, Param.maxSideLen,
+    OcrResult result = pOcrObj->OcrObj.detect(imgPath, imgName, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit,
                                               Param.boxScoreThresh, Param.boxThresh, Param.unClipRatio,
                                               Param.doAngle != 0, Param.mostAngle != 0);
     if (result.strRes.length() > 0) {
@@ -73,11 +76,14 @@ OcrDetectInput(OCR_HANDLE handle, OCR_INPUT *input, OCR_PARAM *pParam, OCR_RESUL
         return FALSE;
 
     OCR_PARAM Param = *pParam;
-    if (Param.padding == 0)
-        Param.padding = 50;
-
     if (Param.maxSideLen == 0)
         Param.maxSideLen = 1024;
+
+    if (Param.minSideLen == 0)
+        Param.minSideLen = 640;
+
+    if (Param.maxSideLimit == 0)
+        Param.maxSideLimit = 8192;
 
     if (Param.boxScoreThresh == 0)
         Param.boxScoreThresh = 0.6;
@@ -102,13 +108,13 @@ OcrDetectInput(OCR_HANDLE handle, OCR_INPUT *input, OCR_PARAM *pParam, OCR_RESUL
         if(input->channels == 0){
             return FALSE;
         }
-        result = pOcrObj->OcrObj.detectBitmap(input->data,input->width,input->height, input->channels, Param.padding, Param.maxSideLen,
+        result = pOcrObj->OcrObj.detectBitmap(input->data,input->width,input->height, input->channels, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit,
                                                         Param.boxScoreThresh, Param.boxThresh, Param.unClipRatio,
                                                         Param.doAngle != 0, Param.mostAngle != 0);
     }
 
     if(input->type == 1){
-        result= pOcrObj->OcrObj.detectImageBytes(input->data,input->dataLength, input->channels >= 3 ? 0 : 1, Param.padding, Param.maxSideLen,
+        result= pOcrObj->OcrObj.detectImageBytes(input->data,input->dataLength, input->channels >= 3 ? 0 : 1, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit,
                                                  Param.boxScoreThresh, Param.boxThresh, Param.unClipRatio,
                                                  Param.doAngle != 0, Param.mostAngle != 0);
     }

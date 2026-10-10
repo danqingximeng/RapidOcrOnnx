@@ -43,13 +43,13 @@ void OcrLite::Logger(const char *format, ...) {
 }
 
 OcrResult OcrLite::detect(const char *path, const char *imgName,
-                          int padding, int maxSideLen,
+                          int maxSideLen, int minSideLen, int maxSideLimit,
                           float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle) {
-    return pImpl->detect(path, imgName, padding, maxSideLen, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
+    return pImpl->detect(path, imgName, maxSideLen, minSideLen, maxSideLimit, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
 }
 
 OcrResult OcrLite::detect(const cv::Mat &mat,
-                          int padding, int maxSideLen,
+                          int maxSideLen, int minSideLen, int maxSideLimit,
                           float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle) {
-    return pImpl->detect(mat, padding, maxSideLen, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
+    return pImpl->detect(mat, maxSideLen, minSideLen, maxSideLimit, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
 }

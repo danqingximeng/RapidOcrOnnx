@@ -118,8 +118,8 @@ Java_com_benjaminwan_ocrlibrary_OcrEngine_initModels(JNIEnv *env, jobject thiz, 
 }
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_benjaminwan_ocrlibrary_OcrEngine_detect(JNIEnv *env, jobject thiz, jstring input, jint padding,
-                                                 jint maxSideLen,
+Java_com_benjaminwan_ocrlibrary_OcrEngine_detect(JNIEnv *env, jobject thiz, jstring input,
+                                                 jint maxSideLen, jint minSideLen, jint maxSideLimit,
                                                  jfloat boxScoreThresh, jfloat boxThresh, jfloat unClipRatio,
                                                  jboolean doAngle, jboolean mostAngle
 ) {
@@ -133,14 +133,14 @@ Java_com_benjaminwan_ocrlibrary_OcrEngine_detect(JNIEnv *env, jobject thiz, jstr
     std::string imgDir = imgPath.substr(0, imgPath.find_last_of('/') + 1);
     std::string imgName = imgPath.substr(imgPath.find_last_of('/') + 1);
     printf("imgDir=%s, imgName=%s\n", imgDir.c_str(), imgName.c_str());
-    OcrResult result = ocrLite->detect(imgDir.c_str(), imgName.c_str(), padding, maxSideLen,
+    OcrResult result = ocrLite->detect(imgDir.c_str(), imgName.c_str(), maxSideLen, minSideLen, maxSideLimit,
                                        boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     return OcrResultUtils(env, result).getJObject();
 }
 
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_benjaminwan_ocrlibrary_OcrEngine_detectInput(JNIEnv *env, jobject thiz, jobject input, jint padding,
-                                                              jint maxSideLen,
+Java_com_benjaminwan_ocrlibrary_OcrEngine_detectInput(JNIEnv *env, jobject thiz, jobject input,
+                                                              jint maxSideLen, jint minSideLen, jint maxSideLimit,
                                                               jfloat boxScoreThresh, jfloat boxThresh, jfloat unClipRatio,
                                                               jboolean doAngle, jboolean mostAngle
 ) {
@@ -173,12 +173,12 @@ Java_com_benjaminwan_ocrlibrary_OcrEngine_detectInput(JNIEnv *env, jobject thiz,
       if(channels == 0){
         env->ThrowNew(env->FindClass("java/lang/RuntimeException"), "When type is bitmap, the channel cannot be empty.");
       }
-      result = ocrLite->detectBitmap(reinterpret_cast<uint8_t*>(nativeData), width, height, channels, padding, maxSideLen,
+      result = ocrLite->detectBitmap(reinterpret_cast<uint8_t*>(nativeData), width, height, channels, maxSideLen, minSideLen, maxSideLimit,
                                    boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     }
     //file bytes
     if(type == 1){
-      result = ocrLite->detectImageBytes(reinterpret_cast<uint8_t*>(nativeData), dataLength, channels >= 3 ? 0 :1, padding, maxSideLen,
+      result = ocrLite->detectImageBytes(reinterpret_cast<uint8_t*>(nativeData), dataLength, channels >= 3 ? 0 :1, maxSideLen, minSideLen, maxSideLimit,
                          boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     }
     env->ReleaseByteArrayElements(javaDataArray, nativeData, JNI_ABORT);

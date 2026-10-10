@@ -42,19 +42,20 @@ exit
 fi
 
 ./${EXE_PATH}/benchmark --version
-./${EXE_PATH}/benchmark --models models \
---det ch_PP-OCRv3_det_infer.onnx \
+./${EXE_PATH}/benchmark --dir models \
+--det PP-OCRv6_small_det.onnx \
 --cls ch_ppocr_mobile_v2.0_cls_infer.onnx \
---rec ch_PP-OCRv3_rec_infer.onnx \
---keys ppocr_keys_v1.txt \
+--rec PP-OCRv6_small_rec.onnx \
+--key ppocrv6_small_dict.txt \
 --image $TARGET_IMG \
---numThread $NUM_THREADS \
---padding 50 \
---maxSideLen 1024 \
---boxScoreThresh 0.5 \
---boxThresh 0.3 \
---unClipRatio 1.6 \
---doAngle 1 \
---mostAngle 1 \
---GPU $GPU_INDEX \
---loopCount $LOOP_COUNT
+--thread $NUM_THREADS \
+--max-side 1024 \
+--min-side 640 \
+--max-side-limit 8192 \
+--box-score 0.5 \
+--thresh 0.3 \
+--unclip-ratio 1.6 \
+--do-angle 1 \
+--most-angle 1 \
+--gpu $GPU_INDEX \
+--loop $LOOP_COUNT

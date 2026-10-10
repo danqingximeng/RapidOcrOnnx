@@ -45,8 +45,9 @@ int main(int argc, char **argv) {
     std::string modelsDir, modelDetPath, modelClsPath, modelRecPath, keysPath;
     std::string imgPath, imgDir, imgName;
     int numThread = 4;
-    int padding = 50;
     int maxSideLen = 1024;
+    int minSideLen = 640;
+    int maxSideLimit = 8192;
     float boxScoreThresh = 0.5f;
     float boxThresh = 0.3f;
     float unClipRatio = 1.6f;
@@ -89,11 +90,14 @@ int main(int argc, char **argv) {
             case 't':
                 numThread = (int) strtol(optarg, NULL, 10);
                 break;
-            case 'p':
-                padding = (int) strtol(optarg, NULL, 10);
-                break;
             case 's':
                 maxSideLen = (int) strtol(optarg, NULL, 10);
+                break;
+            case OPT_MIN_SIDE:
+                minSideLen = (int) strtol(optarg, NULL, 10);
+                break;
+            case OPT_MAX_SIDE_LIMIT:
+                maxSideLimit = (int) strtol(optarg, NULL, 10);
                 break;
             case 'b':
                 boxScoreThresh = strtof(optarg, NULL);
@@ -173,8 +177,8 @@ int main(int argc, char **argv) {
     ocrLite.setGpuIndex(flagGpu);
     ocrLite.Logger("=====Input Params=====\n");
     ocrLite.Logger(
-            "numThread(%d),padding(%d),maxSideLen(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
-            numThread, padding, maxSideLen, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle,
+            "numThread(%d),maxSideLen(%d),minSideLen(%d),maxSideLimit(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
+            numThread, maxSideLen, minSideLen, maxSideLimit, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle,
             flagGpu);
 
     OcrResult result;
@@ -183,7 +187,7 @@ int main(int argc, char **argv) {
             printErrorJson(201, "init models failed");
             return 1;
         }
-        result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), padding, maxSideLen,
+        result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), maxSideLen, minSideLen, maxSideLimit,
                                 boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     } catch (const std::exception &e) {
         printErrorJson(201, e.what());
@@ -232,8 +236,9 @@ int main(int argc, char **argv) {
                          {"rec", modelRecPath},
                          {"keys", keysPath}}},
             {"params",  {{"numThread",      numThread},
-                         {"padding",        padding},
                          {"maxSideLen",     maxSideLen},
+                         {"minSideLen",     minSideLen},
+                         {"maxSideLimit",   maxSideLimit},
                          {"boxScoreThresh", boxScoreThresh},
                          {"boxThresh",      boxThresh},
                          {"unClipRatio",    unClipRatio},

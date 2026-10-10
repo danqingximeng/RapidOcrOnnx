@@ -25,8 +25,9 @@ typedef char OCR_BOOL;
 #define FALSE 0
 
 typedef struct __ocr_param {
-    int padding;
     int maxSideLen;
+    int minSideLen;
+    int maxSideLimit;
     float boxScoreThresh;
     float boxThresh;
     float unClipRatio;
