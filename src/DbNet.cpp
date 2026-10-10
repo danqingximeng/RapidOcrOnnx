@@ -121,7 +121,16 @@ std::vector<TextBox> findRsBoxes(const cv::Mat &predMat, const cv::Mat &dilateMa
 std::vector<TextBox>
 DbNet::getTextBoxes(cv::Mat &src, ScaleParam &s, float boxScoreThresh, float boxThresh, float unClipRatio) {
     cv::Mat srcResize;
-    resize(src, srcResize, cv::Size(s.dstWidth, s.dstHeight));
+    if (s.ratioWidth == 1.0f && s.ratioHeight == 1.0f &&
+        (s.dstWidth > s.srcWidth || s.dstHeight > s.srcHeight)) {
+        // no downscale: pad native-resolution content to the 32-multiple canvas
+        cv::copyMakeBorder(src, srcResize,
+                           0, s.dstHeight - s.srcHeight,
+                           0, s.dstWidth - s.srcWidth,
+                           cv::BORDER_CONSTANT, cv::Scalar(255, 255, 255));
+    } else {
+        resize(src, srcResize, cv::Size(s.dstWidth, s.dstHeight));
+    }
     std::vector<float> inputTensorValues = substractMeanNormalize(srcResize, meanValues, normValues);
     std::array<int64_t, 4> inputShape{1, srcResize.channels(), srcResize.rows, srcResize.cols};
     auto memoryInfo = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);

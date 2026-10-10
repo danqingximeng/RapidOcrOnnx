@@ -38,12 +38,23 @@ ScaleParam getScaleParam(cv::Mat &src, int maxSideLen, int minSideLen, int maxSi
     if (maxSideLimit > 0 && longSide * ratio > maxSideLimit) {
         ratio = (float) maxSideLimit / (float) longSide;
     }
-    int dstWidth = (int) ((float) srcWidth * ratio);
-    int dstHeight = (int) ((float) srcHeight * ratio);
-    dstWidth = (std::max)((int) std::round(dstWidth / 32.0) * 32, 32);
-    dstHeight = (std::max)((int) std::round(dstHeight / 32.0) * 32, 32);
-    float scaleWidth = (float) dstWidth / (float) srcWidth;
-    float scaleHeight = (float) dstHeight / (float) srcHeight;
+    int dstWidth, dstHeight;
+    float scaleWidth, scaleHeight;
+    if (ratio == 1.0f) {
+        // no downscale: keep content at native resolution and ceil the canvas
+        // to a multiple of 32; caller pads instead of resizing
+        dstWidth = ((srcWidth + 31) / 32) * 32;
+        dstHeight = ((srcHeight + 31) / 32) * 32;
+        scaleWidth = 1.0f;
+        scaleHeight = 1.0f;
+    } else {
+        dstWidth = (int) ((float) srcWidth * ratio);
+        dstHeight = (int) ((float) srcHeight * ratio);
+        dstWidth = (std::max)((int) std::round(dstWidth / 32.0) * 32, 32);
+        dstHeight = (std::max)((int) std::round(dstHeight / 32.0) * 32, 32);
+        scaleWidth = (float) dstWidth / (float) srcWidth;
+        scaleHeight = (float) dstHeight / (float) srcHeight;
+    }
     return {srcWidth, srcHeight, dstWidth, dstHeight, scaleWidth, scaleHeight};
 }
 
