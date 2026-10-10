@@ -48,6 +48,8 @@ int main(int argc, char **argv) {
     int maxSideLen = 1024;
     int minSideLen = 640;
     int maxSideLimit = 8192;
+    int flagUpscale = 0;
+    bool upscale = false;
     float boxScoreThresh = 0.5f;
     float boxThresh = 0.3f;
     float unClipRatio = 1.5f;
@@ -98,6 +100,10 @@ int main(int argc, char **argv) {
                 break;
             case OPT_MAX_SIDE_LIMIT:
                 maxSideLimit = (int) strtol(optarg, NULL, 10);
+                break;
+            case OPT_UPSCALE:
+                flagUpscale = (int) strtol(optarg, NULL, 10);
+                upscale = (flagUpscale != 0);
                 break;
             case 'b':
                 boxScoreThresh = strtof(optarg, NULL);
@@ -177,9 +183,9 @@ int main(int argc, char **argv) {
     ocrLite.setGpuIndex(flagGpu);
     ocrLite.Logger("=====Input Params=====\n");
     ocrLite.Logger(
-            "numThread(%d),maxSideLen(%d),minSideLen(%d),maxSideLimit(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
-            numThread, maxSideLen, minSideLen, maxSideLimit, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle,
-            flagGpu);
+            "numThread(%d),maxSideLen(%d),minSideLen(%d),maxSideLimit(%d),upscale(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
+            numThread, maxSideLen, minSideLen, maxSideLimit, flagUpscale, boxScoreThresh, boxThresh, unClipRatio, doAngle,
+            mostAngle, flagGpu);
 
     OcrResult result;
     try {
@@ -187,7 +193,7 @@ int main(int argc, char **argv) {
             printErrorJson(201, "init models failed");
             return 1;
         }
-        result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), maxSideLen, minSideLen, maxSideLimit,
+        result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), maxSideLen, minSideLen, maxSideLimit, upscale,
                                 boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     } catch (const std::exception &e) {
         printErrorJson(201, e.what());
@@ -239,6 +245,7 @@ int main(int argc, char **argv) {
                          {"maxSideLen",     maxSideLen},
                          {"minSideLen",     minSideLen},
                          {"maxSideLimit",   maxSideLimit},
+                         {"upscale",        flagUpscale},
                          {"boxScoreThresh", boxScoreThresh},
                          {"boxThresh",      boxThresh},
                          {"unClipRatio",    unClipRatio},

@@ -84,14 +84,14 @@ void OcrLiteImpl::Logger(const char *format, ...) {
 }
 
 OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
-                          const int maxSideLen, const int minSideLen, const int maxSideLimit,
+                          const int maxSideLen, const int minSideLen, const int maxSideLimit, bool upscale,
                           float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle) {
     std::string imgFile = getSrcImgFilePath(path, imgName);
     cv::Mat originSrc = imread(imgFile, cv::IMREAD_COLOR);//default : BGR
     if (originSrc.empty()) {
         throw std::runtime_error("image load failed: " + imgFile);
     }
-    ScaleParam scale = getScaleParam(originSrc, maxSideLen, minSideLen, maxSideLimit);
+    ScaleParam scale = getScaleParam(originSrc, maxSideLen, minSideLen, maxSideLimit, upscale);
     OcrResult result;
     result = detect(path, imgName, originSrc, scale,
                     boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
@@ -100,20 +100,20 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
 
 
 OcrResult OcrLiteImpl::detectImageBytes(const uint8_t *data, const long dataLength, const int grey,
-                                    const int maxSideLen, const int minSideLen, const int maxSideLimit,
+                                    const int maxSideLen, const int minSideLen, const int maxSideLimit, bool upscale,
                                     float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle,
                                     bool mostAngle) {
     std::vector<uint8_t> vecData(data, data + dataLength);
     cv::Mat originSrc = cv::imdecode(vecData, grey == 1 ? cv::IMREAD_GRAYSCALE : cv::IMREAD_COLOR);//default : BGR
     OcrResult result;
-    result = detect(originSrc, maxSideLen, minSideLen, maxSideLimit,
+    result = detect(originSrc, maxSideLen, minSideLen, maxSideLimit, upscale,
                     boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     return result;
 
 }
 
 OcrResult OcrLiteImpl::detectBitmap(uint8_t *bitmapData, int width, int height, int channels,
-                                int maxSideLen, int minSideLen, int maxSideLimit,
+                                int maxSideLen, int minSideLen, int maxSideLimit, bool upscale,
                                 float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle,
                                 bool mostAngle) {
     cv::Mat originSrc(height, width, CV_8UC(channels), bitmapData);
@@ -123,15 +123,15 @@ OcrResult OcrLiteImpl::detectBitmap(uint8_t *bitmapData, int width, int height, 
         cv::cvtColor(originSrc, originSrc, cv::COLOR_RGB2BGR);
     }
     OcrResult result;
-    result = detect(originSrc, maxSideLen, minSideLen, maxSideLimit,
+    result = detect(originSrc, maxSideLen, minSideLen, maxSideLimit, upscale,
                     boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     return result;
 }
 
-OcrResult OcrLiteImpl::detect(const cv::Mat &mat, int maxSideLen, int minSideLen, int maxSideLimit,
+OcrResult OcrLiteImpl::detect(const cv::Mat &mat, int maxSideLen, int minSideLen, int maxSideLimit, bool upscale,
                           float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle) {
     cv::Mat originSrc = mat;
-    ScaleParam scale = getScaleParam(originSrc, maxSideLen, minSideLen, maxSideLimit);
+    ScaleParam scale = getScaleParam(originSrc, maxSideLen, minSideLen, maxSideLimit, upscale);
     OcrResult result;
     result = detect(NULL, NULL, originSrc, scale,
                     boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);

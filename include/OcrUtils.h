@@ -47,7 +47,7 @@ inline bool isFileExists(const std::string &name) {
 
 std::wstring strToWstr(std::string str);
 
-ScaleParam getScaleParam(cv::Mat &src, int maxSideLen, int minSideLen, int maxSideLimit);
+ScaleParam getScaleParam(cv::Mat &src, int maxSideLen, int minSideLen, int maxSideLimit, bool upscale);
 
 std::vector<cv::Point2f> getBox(const cv::RotatedRect &rect);
 

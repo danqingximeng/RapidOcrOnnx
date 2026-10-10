@@ -29,16 +29,16 @@ public:
     void Logger(const char *format, ...);
 
     OcrResult detect(const char *path, const char *imgName,
-                     int maxSideLen, int minSideLen, int maxSideLimit,
+                     int maxSideLen, int minSideLen, int maxSideLimit, bool upscale,
                      float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
 
     OcrResult detect(const cv::Mat &mat,
-                     int maxSideLen, int minSideLen, int maxSideLimit,
+                     int maxSideLen, int minSideLen, int maxSideLimit, bool upscale,
                      float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
 
-    OcrResult detectImageBytes(const uint8_t *data, long dataLength, int grey, int maxSideLen, int minSideLen, int maxSideLimit,
+    OcrResult detectImageBytes(const uint8_t *data, long dataLength, int grey, int maxSideLen, int minSideLen, int maxSideLimit, bool upscale,
                                float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
-    OcrResult detectBitmap(uint8_t *bitmapData, int width, int height,int channels, int maxSideLen, int minSideLen, int maxSideLimit,
+    OcrResult detectBitmap(uint8_t *bitmapData, int width, int height,int channels, int maxSideLen, int minSideLen, int maxSideLimit, bool upscale,
                            float boxScoreThresh, float boxThresh, float unClipRatio, bool doAngle, bool mostAngle);
 
 private:

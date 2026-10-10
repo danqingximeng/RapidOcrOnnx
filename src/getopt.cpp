@@ -130,7 +130,16 @@ static int _getopt_(int argc, char *const argv[],
                         case required_argument:
                             if (pos_eq == NULL) {
                                 ++optind;
-                                optarg = argv[optind];
+                                if (optind < argc - postpone_count) {
+                                    optarg = argv[optind];
+                                } else {
+                                    if (opterr) {
+                                        fprintf(stderr,
+                                                "%s: option %s requires an argument\n",
+                                                argv[0], optdef->name);
+                                    }
+                                    return '?';
+                                }
                             } else {
                                 optarg = (char *) pos_eq + 1;
                             }

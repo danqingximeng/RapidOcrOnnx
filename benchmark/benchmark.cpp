@@ -37,6 +37,7 @@ int main(int argc, char **argv) {
     int maxSideLen = 1024;
     int minSideLen = 640;
     int maxSideLimit = 8192;
+    bool upscale = false;
     float boxScoreThresh = 0.5f;
     float boxThresh = 0.3f;
     float unClipRatio = 1.5f;
@@ -94,6 +95,9 @@ int main(int argc, char **argv) {
             case OPT_MAX_SIDE_LIMIT:
                 maxSideLimit = (int) strtol(optarg, NULL, 10);
                 break;
+            case OPT_UPSCALE:
+                upscale = ((int) strtol(optarg, NULL, 10) != 0);
+                break;
             case 'b':
                 boxScoreThresh = strtof(optarg, NULL);
                 //printf("boxScoreThresh=%f\n", boxScoreThresh);
@@ -138,7 +142,8 @@ int main(int argc, char **argv) {
                 //printf("loopCount=%d\n", loopCount);
                 break;
             default:
-                printf("other option %c :%s\n", opt, optarg);
+                fprintf(stderr, "invalid option\n");
+                return 1;
         }
     }
     bool hasTargetImgFile = isFileExists(imgPath);
@@ -175,14 +180,15 @@ int main(int argc, char **argv) {
 
     ocrLite.setGpuIndex(flagGpu);
     printf("=====Input Params=====\n");
-    printf("numThread(%d),maxSideLen(%d),minSideLen(%d),maxSideLimit(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
-            numThread, maxSideLen, minSideLen, maxSideLimit, boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle,
+    printf("numThread(%d),maxSideLen(%d),minSideLen(%d),maxSideLimit(%d),upscale(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
+            numThread, maxSideLen, minSideLen, maxSideLimit, upscale, boxScoreThresh, boxThresh, unClipRatio, doAngle,
+            mostAngle,
             flagGpu);
     bool initModelsRet = ocrLite.initModels(modelDetPath, modelClsPath, modelRecPath, keysPath);
     if (!initModelsRet) return -1;
     printf("=====Warmup 2 cycles=====\n");
     for (int i = 0; i < 2; ++i) {
-        OcrResult result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), maxSideLen, minSideLen, maxSideLimit,
+        OcrResult result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), maxSideLen, minSideLen, maxSideLimit, upscale,
                                           boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
         printf("Warmup time(%f)\n", result.detectTime);
     }
@@ -194,7 +200,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < loopCount; ++i) {
         printf("=====Cycle:%d Take Time(ms)=====\n", i + 1);
         OcrResult ocrResult = ocrLite.detect(imgDir.c_str(), imgName.c_str(),
-                                             maxSideLen, minSideLen, maxSideLimit,
+                                             maxSideLen, minSideLen, maxSideLimit, upscale,
                                              boxScoreThresh, boxThresh,
                                              unClipRatio, doAngle, mostAngle);
         double dbTime = ocrResult.dbNetTime;

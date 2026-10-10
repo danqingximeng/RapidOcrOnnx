@@ -18,19 +18,22 @@ std::wstring strToWstr(std::string str) {
     return wstr;
 }
 
-// Downscale-only three-clamp rule, aligned with PaddleOCR DetResizeForTest (round-to-32):
-// gate on maxSideLen, raise ratio via the minSideLen floor (never past 1.0), then apply
-// the maxSideLimit hard cap unconditionally so it also guards --max-side 0.
-ScaleParam getScaleParam(cv::Mat &src, int maxSideLen, int minSideLen, int maxSideLimit) {
+// Resize rule aligned with PaddleOCR DetResizeForTest (round-to-32): gate on
+// maxSideLen, raise ratio via the minSideLen floor (upscaling only when opted
+// in), then apply the maxSideLimit hard cap unconditionally so it also guards
+// --max-side 0.
+ScaleParam getScaleParam(cv::Mat &src, int maxSideLen, int minSideLen, int maxSideLimit, bool upscale) {
     int srcWidth = src.cols;
     int srcHeight = src.rows;
     int longSide = (std::max)(srcWidth, srcHeight);
     int shortSide = (std::min)(srcWidth, srcHeight);
 
     float ratio = 1.0f;
-    if (maxSideLen > 0 && longSide > maxSideLen) {
+    if (upscale && minSideLen > 0 && shortSide < minSideLen) {
+        ratio = (float) minSideLen / (float) shortSide;
+    } else if (maxSideLen > 0 && longSide > maxSideLen) {
         ratio = (float) maxSideLen / (float) longSide;
-        // short-side floor: shrink less, but never cross into upscaling
+        // short-side floor: shrink less, but never past 1.0
         if (minSideLen > 0 && shortSide * ratio < minSideLen) {
             ratio = (std::min)((float) minSideLen / (float) shortSide, 1.0f);
         }

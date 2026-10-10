@@ -58,7 +58,7 @@ OcrDetect(OCR_HANDLE handle, const char *imgPath, const char *imgName, OCR_PARAM
     if (Param.mostAngle == 0)
         Param.mostAngle = 1;
 
-    OcrResult result = pOcrObj->OcrObj.detect(imgPath, imgName, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit,
+    OcrResult result = pOcrObj->OcrObj.detect(imgPath, imgName, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit, false,
                                               Param.boxScoreThresh, Param.boxThresh, Param.unClipRatio,
                                               Param.doAngle != 0, Param.mostAngle != 0);
     if (result.strRes.length() > 0) {
@@ -108,13 +108,13 @@ OcrDetectInput(OCR_HANDLE handle, OCR_INPUT *input, OCR_PARAM *pParam, OCR_RESUL
         if(input->channels == 0){
             return FALSE;
         }
-        result = pOcrObj->OcrObj.detectBitmap(input->data,input->width,input->height, input->channels, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit,
+        result = pOcrObj->OcrObj.detectBitmap(input->data,input->width,input->height, input->channels, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit, false,
                                                         Param.boxScoreThresh, Param.boxThresh, Param.unClipRatio,
                                                         Param.doAngle != 0, Param.mostAngle != 0);
     }
 
     if(input->type == 1){
-        result= pOcrObj->OcrObj.detectImageBytes(input->data,input->dataLength, input->channels >= 3 ? 0 : 1, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit,
+        result= pOcrObj->OcrObj.detectImageBytes(input->data,input->dataLength, input->channels >= 3 ? 0 : 1, Param.maxSideLen, Param.minSideLen, Param.maxSideLimit, false,
                                                  Param.boxScoreThresh, Param.boxThresh, Param.unClipRatio,
                                                  Param.doAngle != 0, Param.mostAngle != 0);
     }
