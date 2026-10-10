@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
     int maxSideLimit = 8192;
     float boxScoreThresh = 0.5f;
     float boxThresh = 0.3f;
-    float unClipRatio = 1.6f;
+    float unClipRatio = 1.5f;
     bool doAngle = true;
     int flagDoAngle = 1;
     bool mostAngle = true;

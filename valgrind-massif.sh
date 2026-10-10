@@ -34,6 +34,6 @@ valgrind --tool=massif --pages-as-heap=yes \
 --maxSideLen 1024 \
 --boxScoreThresh 0.5 \
 --boxThresh 0.3 \
---unClipRatio 1.6 \
+--unClipRatio 1.5 \
 --doAngle 1 \
 --mostAngle 1

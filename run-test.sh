@@ -50,9 +50,9 @@ fi
 --max-side 1024 \
 --min-side 640 \
 --max-side-limit 8192 \
---box-score 0.5 \
 --thresh 0.3 \
---unclip-ratio 1.6 \
+--box-thresh 0.5 \
+--unclip-ratio 1.5 \
 --do-angle 1 \
 --most-angle 1 \
 --gpu $GPU_INDEX

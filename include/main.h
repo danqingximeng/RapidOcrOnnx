@@ -26,8 +26,8 @@ static const struct option long_options[] = {
         {"max-side",       required_argument, NULL, 's'},
         {"min-side",       required_argument, NULL, OPT_MIN_SIDE},
         {"max-side-limit", required_argument, NULL, OPT_MAX_SIDE_LIMIT},
-        {"box-score",      required_argument, NULL, 'b'},
         {"thresh",         required_argument, NULL, 'o'},
+        {"box-thresh",     required_argument, NULL, 'b'},
         {"unclip-ratio",   required_argument, NULL, 'u'},
         {"do-angle",       required_argument, NULL, 'a'},
         {"most-angle",     required_argument, NULL, 'A'},
@@ -41,7 +41,7 @@ static const struct option long_options[] = {
 };
 
 const char *usageMsg = "(-i --image) (--det) (--cls) (--rec) (--key) [--dir]\n"\
-                       "[--thread] [--max-side] [--min-side] [--max-side-limit] [--box-score] [--thresh] [--unclip-ratio]\n" \
+                       "[--thread] [--max-side] [--min-side] [--max-side-limit] [--thresh] [--box-thresh] [--unclip-ratio]\n" \
                        "[--do-angle] [--most-angle] [--gpu]\n" \
                        "[--save-img] [--debug]\n" \
                        "Result: JSON printed to stdout only.\n\n";
@@ -57,9 +57,9 @@ const char *optionalMsg = "--dir: directory prefix; when set, --det/--cls/--rec/
                           "--max-side: long-side budget for downscaling(int), 0 disables, applied only when exceeded, default: 1024\n" \
                           "--min-side: short-side floor while downscaling(int), 0 disables, default: 640\n" \
                           "--max-side-limit: hard cap of the long side after resize(int), 0 disables, default: 8192\n" \
-                          "--box-score: box confidence threshold(float), default: 0.5\n" \
                           "--thresh: prob map binarization threshold(float), default: 0.3\n" \
-                          "--unclip-ratio: box expansion ratio(float), default: 1.6\n" \
+                          "--box-thresh: box confidence threshold(float), default: 0.5\n" \
+                          "--unclip-ratio: box expansion ratio(float), default: 1.5\n" \
                           "--do-angle: Enable(1)/Disable(0) Angle Net, default: Enable\n" \
                           "--most-angle: Enable(1)/Disable(0) Most Possible AngleIndex, default: Enable\n" \
                           "--gpu: Disable(-1)/GPU0(0)/GPU1(1)/... Use Vulkan GPU accelerate, default: Disable(-1)\n" \
@@ -72,6 +72,6 @@ const char *otherMsg = "-v --version: show version\n" \
                        "Exit codes: 0 success (JSON code 100/101), 1 error (JSON code 200/201/202)\n\n";
 
 const char *example1Msg = "Example1: %s --det /models/small_det.onnx --cls /models/cls.onnx --rec /models/small_rec.onnx --key /models/keys.txt --image 1.jpg\n";
-const char *example2Msg = "Example2: %s --dir models --det small_det.onnx --cls cls.onnx --rec small_rec.onnx --key keys.txt -i 1.jpg --thread 4 --max-side 1024 --min-side 640 --max-side-limit 8192 --box-score 0.5 --thresh 0.3 --unclip-ratio 1.6 --do-angle 1 --most-angle 1 --gpu -1\n";
+const char *example2Msg = "Example2: %s --dir models --det small_det.onnx --cls cls.onnx --rec small_rec.onnx --key keys.txt -i 1.jpg --thread 4 --max-side 1024 --min-side 640 --max-side-limit 8192 --thresh 0.3 --box-thresh 0.5 --unclip-ratio 1.5 --do-angle 1 --most-angle 1 --gpu -1\n";
 
 #endif //__MAIN_H__
