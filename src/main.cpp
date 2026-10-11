@@ -183,7 +183,7 @@ int main(int argc, char **argv) {
     ocrLite.setGpuIndex(flagGpu);
     ocrLite.Logger("=====Input Params=====\n");
     ocrLite.Logger(
-            "numThread(%d),maxSideLen(%d),minSideLen(%d),maxSideLimit(%d),upscale(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
+            "thread(%d),maxSide(%d),minSide(%d),maxSideLimit(%d),upscale(%d),boxThresh(%f),thresh(%f),unclipRatio(%f),doAngle(%d),mostAngle(%d),gpu(%d)\n",
             numThread, maxSideLen, minSideLen, maxSideLimit, flagUpscale, boxScoreThresh, boxThresh, unClipRatio, doAngle,
             mostAngle, flagGpu);
 
@@ -241,17 +241,23 @@ int main(int argc, char **argv) {
                          {"cls", modelClsPath},
                          {"rec", modelRecPath},
                          {"keys", keysPath}}},
-            {"params",  {{"numThread",      numThread},
-                         {"maxSideLen",     maxSideLen},
-                         {"minSideLen",     minSideLen},
-                         {"maxSideLimit",   maxSideLimit},
-                         {"upscale",        flagUpscale},
-                         {"boxScoreThresh", boxScoreThresh},
-                         {"boxThresh",      boxThresh},
-                         {"unClipRatio",    unClipRatio},
-                         {"doAngle",        flagDoAngle},
-                         {"mostAngle",      flagMostAngle},
-                         {"gpu",            flagGpu}}}
+            {"scale",   {{"srcWidth",    result.scale.srcWidth},
+                         {"srcHeight",   result.scale.srcHeight},
+                         {"dstWidth",    result.scale.dstWidth},
+                         {"dstHeight",   result.scale.dstHeight},
+                         {"ratioWidth",  result.scale.ratioWidth},
+                         {"ratioHeight", result.scale.ratioHeight}}},
+            {"params",  {{"thread",      numThread},
+                         {"maxSide",     maxSideLen},
+                         {"minSide",     minSideLen},
+                         {"maxSideLimit", maxSideLimit},
+                         {"upscale",     flagUpscale},
+                         {"boxThresh",   boxScoreThresh},
+                         {"thresh",      boxThresh},
+                         {"unclipRatio", unClipRatio},
+                         {"doAngle",     flagDoAngle},
+                         {"mostAngle",   flagMostAngle},
+                         {"gpu",         flagGpu}}}
     };
     printf("%s\n", out.dump().c_str());
     fflush(stdout);

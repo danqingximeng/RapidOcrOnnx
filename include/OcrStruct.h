@@ -48,6 +48,7 @@ struct OcrResult {
     cv::Mat boxImg;
     double detectTime;
     std::string strRes;
+    ScaleParam scale;
 };
 
 #endif //__OCR_STRUCT_H__

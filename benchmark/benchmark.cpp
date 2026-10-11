@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
 
     ocrLite.setGpuIndex(flagGpu);
     printf("=====Input Params=====\n");
-    printf("numThread(%d),maxSideLen(%d),minSideLen(%d),maxSideLimit(%d),upscale(%d),boxScoreThresh(%f),boxThresh(%f),unClipRatio(%f),doAngle(%d),mostAngle(%d),GPU(%d)\n",
+    printf("thread(%d),maxSide(%d),minSide(%d),maxSideLimit(%d),upscale(%d),boxThresh(%f),thresh(%f),unclipRatio(%f),doAngle(%d),mostAngle(%d),gpu(%d)\n",
             numThread, maxSideLen, minSideLen, maxSideLimit, upscale, boxScoreThresh, boxThresh, unClipRatio, doAngle,
             mostAngle,
             flagGpu);

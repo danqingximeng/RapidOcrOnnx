@@ -55,7 +55,7 @@ const char *requiredMsg = "-i --image: path of target image.\n" \
                           "--key: path of keys file.\n\n";
 
 const char *optionalMsg = "--dir: directory prefix; when set, --det/--cls/--rec/--key take file names inside it\n" \
-                          "--thread: value of numThread(int), default: 4\n" \
+                           "--thread: number of threads(int), default: 4\n" \
                           "--max-side: long-side budget for downscaling(int), 0 disables, applied only when exceeded, default: 1024\n" \
                           "--min-side: short-side floor while downscaling(int), 0 disables, default: 640\n" \
                           "--max-side-limit: hard cap of the long side after resize(int), 0 disables, default: 8192\n" \

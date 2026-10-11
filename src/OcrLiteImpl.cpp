@@ -161,8 +161,8 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
     int thickness = getThickness(src);
 
     Logger("=====Start detect=====\n");
-    Logger("ScaleParam(sw:%d,sh:%d,dw:%d,dh:%d,%f,%f)\n", scale.srcWidth, scale.srcHeight,
-           scale.dstWidth, scale.dstHeight,
+    Logger("ScaleParam(srcWidth:%d,srcHeight:%d,dstWidth:%d,dstHeight:%d,ratioWidth:%f,ratioHeight:%f)\n",
+           scale.srcWidth, scale.srcHeight, scale.dstWidth, scale.dstHeight,
            scale.ratioWidth, scale.ratioHeight);
 
     Logger("---------- step: dbNet getTextBoxes ----------\n");
@@ -249,5 +249,5 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
         strRes.append("\n");
     }
 
-    return OcrResult{dbNetTime, textBlocks, textBoxImg, fullTime, strRes};
+    return OcrResult{dbNetTime, textBlocks, textBoxImg, fullTime, strRes, scale};
 }
