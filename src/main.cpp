@@ -1,16 +1,32 @@
 #ifndef __JNI__
 #ifndef __CLIB__
 #include <cstdio>
+#include <iostream>
 #include "main.h"
 #include "version.h"
 #include "OcrLite.h"
 #include "OcrUtils.h"
 #include "nlohmann/json.hpp"
+#include <opencv2/imgcodecs.hpp>
 #ifdef _WIN32
 #include <windows.h>
 #endif
 
 using json = nlohmann::json;
+
+// Detection parameters shared by single-shot mode and per-request server overrides.
+// Field names match the CLI flags / JSON meta.params keys.
+struct DetectParams {
+    int maxSide = 1024;
+    int minSide = 640;
+    int maxSideLimit = 8192;
+    int upscale = 0;
+    float boxThresh = 0.5f;
+    float thresh = 0.3f;
+    float unclipRatio = 1.5f;
+    int doAngle = 1;
+    int mostAngle = 1;
+};
 
 void printHelp(FILE *out, char *argv0) {
     fprintf(out, " ------- Usage -------\n");
@@ -34,6 +50,189 @@ static void printErrorJson(int code, const std::string &message) {
     fflush(stdout);
 }
 
+static json buildResultJson(const OcrResult &result, const std::string &image,
+                            const std::string &modelDetPath, const std::string &modelClsPath,
+                            const std::string &modelRecPath, const std::string &keysPath,
+                            int numThread, int flagGpu, const DetectParams &p) {
+    json data = json::array();
+    double clsTotal = 0.0;
+    double recTotal = 0.0;
+    for (const auto &block: result.textBlocks) {
+        json item;
+        item["text"] = block.text;
+        json box = json::array();
+        for (const auto &pt: block.boxPoint) {
+            box.push_back(json::array({pt.x, pt.y}));
+        }
+        item["box"] = box;
+        item["boxScore"] = block.boxScore;
+        float scoreSum = 0.0f;
+        for (float s: block.charScores) {
+            scoreSum += s;
+        }
+        item["score"] = block.charScores.empty() ? 0.0f
+                                                 : scoreSum / (float) block.charScores.size();
+        item["scores"] = block.charScores;
+        item["angle"] = block.angleIndex;
+        item["angleScore"] = block.angleScore;
+        item["time"] = {{"cls", block.angleTime}, {"rec", block.crnnTime}};
+        clsTotal += block.angleTime;
+        recTotal += block.crnnTime;
+        data.push_back(item);
+    }
+
+    json out;
+    out["code"] = result.textBlocks.empty() ? 101 : 100;
+    out["data"] = data;
+    out["time"] = {{"det",   result.dbNetTime},
+                   {"cls",   clsTotal},
+                   {"rec",   recTotal},
+                   {"total", result.detectTime}};
+    out["meta"] = {
+            {"version", VERSION},
+            {"image",   image},
+            {"models",  {{"det", modelDetPath},
+                         {"cls", modelClsPath},
+                         {"rec", modelRecPath},
+                         {"keys", keysPath}}},
+            {"scale",   {{"srcWidth",    result.scale.srcWidth},
+                         {"srcHeight",   result.scale.srcHeight},
+                         {"dstWidth",    result.scale.dstWidth},
+                         {"dstHeight",   result.scale.dstHeight},
+                         {"ratioWidth",  result.scale.ratioWidth},
+                         {"ratioHeight", result.scale.ratioHeight}}},
+            {"params",  {{"thread",      numThread},
+                         {"maxSide",     p.maxSide},
+                         {"minSide",     p.minSide},
+                         {"maxSideLimit", p.maxSideLimit},
+                         {"upscale",     p.upscale},
+                         {"boxThresh",   p.boxThresh},
+                         {"thresh",      p.thresh},
+                         {"unclipRatio", p.unclipRatio},
+                         {"doAngle",     p.doAngle},
+                         {"mostAngle",   p.mostAngle},
+                         {"gpu",         flagGpu}}}
+    };
+    return out;
+}
+
+static bool base64Decode(const std::string &in, std::vector<uchar> &out) {
+    static const std::string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    static int table[256];
+    static bool tableReady = false;
+    if (!tableReady) {
+        std::fill(std::begin(table), std::end(table), -1);
+        for (int i = 0; i < (int) chars.size(); ++i) {
+            table[(unsigned char) chars[i]] = i;
+        }
+        tableReady = true;
+    }
+    int val = 0, valb = -8;
+    for (unsigned char c: in) {
+        if (c == '=') break;
+        if (c == ' ' || c == '\n' || c == '\r' || c == '\t') continue;
+        if (table[c] == -1) return false;
+        val = (val << 6) + table[c];
+        valb += 6;
+        if (valb >= 0) {
+            out.push_back((uchar) ((val >> valb) & 0xFF));
+            valb -= 8;
+        }
+    }
+    return !out.empty();
+}
+
+static int runServer(OcrLite &ocrLite, const DetectParams &defaults,
+                     const std::string &modelDetPath, const std::string &modelClsPath,
+                     const std::string &modelRecPath, const std::string &keysPath,
+                     int numThread, int flagGpu) {
+    printf("RapidOcrOnnx v%s\n", VERSION);
+    printf("OCR init completed.\n");
+    fflush(stdout);
+
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        if (line.empty()) continue;
+
+        json req;
+        try {
+            req = json::parse(line);
+        } catch (const json::exception &) {
+            printErrorJson(202, "invalid json input");
+            continue;
+        }
+
+        std::string imgPath, imgB64;
+        if (req.contains("image_path") && req["image_path"].is_string()) {
+            imgPath = req["image_path"].get<std::string>();
+        }
+        if (req.contains("image_base64") && req["image_base64"].is_string()) {
+            imgB64 = req["image_base64"].get<std::string>();
+        }
+        if (imgPath.empty() && imgB64.empty()) {
+            printErrorJson(202, "missing image_path or image_base64");
+            continue;
+        }
+
+        DetectParams p = defaults;
+        try {
+            if (req.contains("maxSide")) p.maxSide = req["maxSide"].get<int>();
+            if (req.contains("minSide")) p.minSide = req["minSide"].get<int>();
+            if (req.contains("maxSideLimit")) p.maxSideLimit = req["maxSideLimit"].get<int>();
+            if (req.contains("upscale")) p.upscale = req["upscale"].get<int>() != 0 ? 1 : 0;
+            if (req.contains("boxThresh")) p.boxThresh = req["boxThresh"].get<float>();
+            if (req.contains("thresh")) p.thresh = req["thresh"].get<float>();
+            if (req.contains("unclipRatio")) p.unclipRatio = req["unclipRatio"].get<float>();
+            if (req.contains("doAngle")) p.doAngle = req["doAngle"].get<int>() != 0 ? 1 : 0;
+            if (req.contains("mostAngle")) p.mostAngle = req["mostAngle"].get<int>() != 0 ? 1 : 0;
+        } catch (const json::exception &e) {
+            printErrorJson(202, std::string("invalid param override: ") + e.what());
+            continue;
+        }
+
+        cv::Mat img;
+        std::string image;
+        if (!imgPath.empty()) {
+            image = imgPath;
+            if (!isFileExists(imgPath)) {
+                printErrorJson(200, "image not found: " + imgPath);
+                continue;
+            }
+            img = cv::imread(imgPath, cv::IMREAD_COLOR);
+            if (img.empty()) {
+                printErrorJson(201, "image load failed: " + imgPath);
+                continue;
+            }
+        } else {
+            image = "<base64>";
+            std::vector<uchar> data;
+            if (!base64Decode(imgB64, data)) {
+                printErrorJson(201, "base64 decode failed");
+                continue;
+            }
+            img = cv::imdecode(data, cv::IMREAD_COLOR);
+            if (img.empty()) {
+                printErrorJson(201, "base64 image decode failed");
+                continue;
+            }
+        }
+
+        try {
+            OcrResult result = ocrLite.detect(img, p.maxSide, p.minSide, p.maxSideLimit, p.upscale != 0,
+                                              p.boxThresh, p.thresh, p.unclipRatio,
+                                              p.doAngle != 0, p.mostAngle != 0);
+            json out = buildResultJson(result, image, modelDetPath, modelClsPath, modelRecPath, keysPath,
+                                       numThread, flagGpu, p);
+            printf("%s\n", out.dump().c_str());
+            fflush(stdout);
+        } catch (const std::exception &e) {
+            printErrorJson(201, e.what());
+        }
+    }
+    return 0;
+}
+
 int main(int argc, char **argv) {
     if (argc <= 1) {
         printHelp(stderr, argv[0]);
@@ -45,22 +244,12 @@ int main(int argc, char **argv) {
     std::string modelsDir, modelDetPath, modelClsPath, modelRecPath, keysPath;
     std::string imgPath, imgDir, imgName;
     int numThread = 4;
-    int maxSideLen = 1024;
-    int minSideLen = 640;
-    int maxSideLimit = 8192;
-    int flagUpscale = 0;
-    bool upscale = false;
-    float boxScoreThresh = 0.5f;
-    float boxThresh = 0.3f;
-    float unClipRatio = 1.5f;
-    bool doAngle = true;
-    int flagDoAngle = 1;
-    bool mostAngle = true;
-    int flagMostAngle = 1;
     int flagGpu = -1;
     bool debug = false;
     bool saveImg = false;
     std::string saveImgPath;
+    bool server = false;
+    DetectParams params;
 
     int opt;
     int optionIndex = 0;
@@ -93,34 +282,31 @@ int main(int argc, char **argv) {
                 numThread = (int) strtol(optarg, NULL, 10);
                 break;
             case 's':
-                maxSideLen = (int) strtol(optarg, NULL, 10);
+                params.maxSide = (int) strtol(optarg, NULL, 10);
                 break;
             case OPT_MIN_SIDE:
-                minSideLen = (int) strtol(optarg, NULL, 10);
+                params.minSide = (int) strtol(optarg, NULL, 10);
                 break;
             case OPT_MAX_SIDE_LIMIT:
-                maxSideLimit = (int) strtol(optarg, NULL, 10);
+                params.maxSideLimit = (int) strtol(optarg, NULL, 10);
                 break;
             case OPT_UPSCALE:
-                flagUpscale = (int) strtol(optarg, NULL, 10);
-                upscale = (flagUpscale != 0);
+                params.upscale = (int) strtol(optarg, NULL, 10) != 0 ? 1 : 0;
                 break;
             case 'b':
-                boxScoreThresh = strtof(optarg, NULL);
+                params.boxThresh = strtof(optarg, NULL);
                 break;
             case 'o':
-                boxThresh = strtof(optarg, NULL);
+                params.thresh = strtof(optarg, NULL);
                 break;
             case 'u':
-                unClipRatio = strtof(optarg, NULL);
+                params.unclipRatio = strtof(optarg, NULL);
                 break;
             case 'a':
-                flagDoAngle = (int) strtol(optarg, NULL, 10);
-                doAngle = (flagDoAngle != 0);
+                params.doAngle = (int) strtol(optarg, NULL, 10) != 0 ? 1 : 0;
                 break;
             case 'A':
-                flagMostAngle = (int) strtol(optarg, NULL, 10);
-                mostAngle = (flagMostAngle != 0);
+                params.mostAngle = (int) strtol(optarg, NULL, 10) != 0 ? 1 : 0;
                 break;
             case 'v':
                 printf("%s\n", VERSION);
@@ -140,19 +326,33 @@ int main(int argc, char **argv) {
                     saveImgPath = optarg;
                 }
                 break;
+            case OPT_SERVER:
+                server = true;
+                break;
             default:
                 printErrorJson(202, "invalid option");
                 return 1;
         }
     }
 
-    if (imgPath.empty()) {
-        printErrorJson(202, "missing required parameter: -i/--image");
+    if (server && !imgPath.empty()) {
+        printErrorJson(202, "--server cannot be combined with -i/--image");
         return 1;
     }
-    if (!isFileExists(imgPath)) {
-        printErrorJson(200, "image not found: " + imgPath);
+    if (server && saveImg && saveImgPath.empty()) {
+        // Mat-based detect has no source path to derive a result image name from.
+        printErrorJson(202, "--save-img in --server mode requires an explicit path");
         return 1;
+    }
+    if (!server) {
+        if (imgPath.empty()) {
+            printErrorJson(202, "missing required parameter: -i/--image");
+            return 1;
+        }
+        if (!isFileExists(imgPath)) {
+            printErrorJson(200, "image not found: " + imgPath);
+            return 1;
+        }
     }
     if (modelDetPath.empty() || !isFileExists(modelDetPath)) {
         printErrorJson(202, "det model file not found: " + modelDetPath);
@@ -184,81 +384,35 @@ int main(int argc, char **argv) {
     ocrLite.Logger("=====Input Params=====\n");
     ocrLite.Logger(
             "thread(%d),maxSide(%d),minSide(%d),maxSideLimit(%d),upscale(%d),boxThresh(%f),thresh(%f),unclipRatio(%f),doAngle(%d),mostAngle(%d),gpu(%d)\n",
-            numThread, maxSideLen, minSideLen, maxSideLimit, flagUpscale, boxScoreThresh, boxThresh, unClipRatio, doAngle,
-            mostAngle, flagGpu);
+            numThread, params.maxSide, params.minSide, params.maxSideLimit, params.upscale, params.boxThresh,
+            params.thresh, params.unclipRatio, params.doAngle, params.mostAngle, flagGpu);
 
-    OcrResult result;
     try {
         if (!ocrLite.initModels(modelDetPath, modelClsPath, modelRecPath, keysPath)) {
             printErrorJson(201, "init models failed");
             return 1;
         }
-        result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), maxSideLen, minSideLen, maxSideLimit, upscale,
-                                boxScoreThresh, boxThresh, unClipRatio, doAngle, mostAngle);
     } catch (const std::exception &e) {
         printErrorJson(201, e.what());
         return 1;
     }
 
-    json data = json::array();
-    double clsTotal = 0.0;
-    double recTotal = 0.0;
-    for (const auto &block: result.textBlocks) {
-        json item;
-        item["text"] = block.text;
-        json box = json::array();
-        for (const auto &p: block.boxPoint) {
-            box.push_back(json::array({p.x, p.y}));
-        }
-        item["box"] = box;
-        item["boxScore"] = block.boxScore;
-        float scoreSum = 0.0f;
-        for (float s: block.charScores) {
-            scoreSum += s;
-        }
-        item["score"] = block.charScores.empty() ? 0.0f
-                                                 : scoreSum / (float) block.charScores.size();
-        item["scores"] = block.charScores;
-        item["angle"] = block.angleIndex;
-        item["angleScore"] = block.angleScore;
-        item["time"] = {{"cls", block.angleTime}, {"rec", block.crnnTime}};
-        clsTotal += block.angleTime;
-        recTotal += block.crnnTime;
-        data.push_back(item);
+    if (server) {
+        return runServer(ocrLite, params, modelDetPath, modelClsPath, modelRecPath, keysPath, numThread, flagGpu);
     }
 
-    json out;
-    out["code"] = result.textBlocks.empty() ? 101 : 100;
-    out["data"] = data;
-    out["time"] = {{"det",   result.dbNetTime},
-                   {"cls",   clsTotal},
-                   {"rec",   recTotal},
-                   {"total", result.detectTime}};
-    out["meta"] = {
-            {"version", VERSION},
-            {"image",   imgPath},
-            {"models",  {{"det", modelDetPath},
-                         {"cls", modelClsPath},
-                         {"rec", modelRecPath},
-                         {"keys", keysPath}}},
-            {"scale",   {{"srcWidth",    result.scale.srcWidth},
-                         {"srcHeight",   result.scale.srcHeight},
-                         {"dstWidth",    result.scale.dstWidth},
-                         {"dstHeight",   result.scale.dstHeight},
-                         {"ratioWidth",  result.scale.ratioWidth},
-                         {"ratioHeight", result.scale.ratioHeight}}},
-            {"params",  {{"thread",      numThread},
-                         {"maxSide",     maxSideLen},
-                         {"minSide",     minSideLen},
-                         {"maxSideLimit", maxSideLimit},
-                         {"upscale",     flagUpscale},
-                         {"boxThresh",   boxScoreThresh},
-                         {"thresh",      boxThresh},
-                         {"unclipRatio", unClipRatio},
-                         {"doAngle",     flagDoAngle},
-                         {"mostAngle",   flagMostAngle},
-                         {"gpu",         flagGpu}}}
-    };
+    OcrResult result;
+    try {
+        result = ocrLite.detect(imgDir.c_str(), imgName.c_str(), params.maxSide, params.minSide, params.maxSideLimit,
+                                params.upscale != 0, params.boxThresh, params.thresh, params.unclipRatio,
+                                params.doAngle != 0, params.mostAngle != 0);
+    } catch (const std::exception &e) {
+        printErrorJson(201, e.what());
+        return 1;
+    }
+
+    json out = buildResultJson(result, imgPath, modelDetPath, modelClsPath, modelRecPath, keysPath,
+                               numThread, flagGpu, params);
     printf("%s\n", out.dump().c_str());
     fflush(stdout);
     return 0;
