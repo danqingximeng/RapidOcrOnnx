@@ -444,6 +444,13 @@ def make_handler(client):
                 return
             self._serve_static(path)
 
+        def do_HEAD(self):
+            path = urlsplit(self.path).path
+            if path.startswith("/v1/") or path.startswith("/api/"):
+                self.send_error(404)
+                return
+            self._serve_static(path, body=False)
+
         def do_POST(self):
             path = urlsplit(self.path).path
             if path != "/v1/ocr":
@@ -500,7 +507,7 @@ def make_handler(client):
             self.end_headers()
             self.wfile.write(body)
 
-        def _serve_static(self, path):
+        def _serve_static(self, path, body=True):
             if path.endswith("/"):
                 path += "index.html"
             relative = os.path.normpath(unquote(path)).lstrip("/")
@@ -520,6 +527,8 @@ def make_handler(client):
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(os.path.getsize(candidate)))
             self.end_headers()
+            if not body:
+                return
             with open(candidate, "rb") as f:
                 while True:
                     chunk = f.read(65536)
