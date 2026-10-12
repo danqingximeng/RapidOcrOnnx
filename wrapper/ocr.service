@@ -1,0 +1,11 @@
+[Unit]
+Description = RapidOCR WebUI & API Service
+After = network.target syslog.target
+Wants = network.target
+
+[Service]
+ExecStart = /opt/RapidOcrOnnx/wrapper/ocr serve
+Restart = always
+
+[Install]
+WantedBy = multi-user.target
