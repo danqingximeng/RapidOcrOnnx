@@ -1,0 +1,24 @@
+# ocr 包装脚本配置。查找顺序：--config 指定路径 > wrapper/config.toml > ~/.config/rapidocr/config.toml。
+# 所有键均可省略，省略时用内置默认值。
+
+# 默认 preset 名。内置 tiny/small/medium，也可用下方 [presets.*] 新增或覆盖。
+default_preset = "small"
+
+[engine]
+path = "/opt/RapidOcrOnnx/build/RapidOcrOnnx"
+dir  = "/opt/RapidOcrOnnx/models"
+
+[server]
+host = "0.0.0.0"
+port = 1538
+# Web UI 静态文件目录。省略或留空则用脚本同目录下的 web/
+# web_root = "/opt/RapidOcrOnnx/wrapper/web"
+
+# 新增自定义 preset：det/rec 必填，cls/dict 省略时自动推导
+# （dict 跟随 rec：文件名含 tiny -> ppocrv6_tiny_dict.txt，
+#   含 v3 -> ppocr_keys_v1.txt，含 v5 -> ppocrv5_dict.txt，其余 -> ppocrv6_dict.txt）
+# 同名条目会覆盖内置 preset。
+
+[presets.hand]
+det = "PP-OCRv6_tiny_det.onnx"
+rec = "PP-OCRv6_medium_rec.onnx"
