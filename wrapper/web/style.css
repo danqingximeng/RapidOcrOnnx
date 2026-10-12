@@ -1,0 +1,612 @@
+:root {
+  --bg: #F6F7F9;
+  --panel: #FFFFFF;
+  --ink: #1A1D23;
+  --ink-dim: #6B7280;
+  --line: #E5E7EB;
+  --accent: #2F5BFF;
+  --accent-soft: rgba(47, 91, 255, 0.12);
+  --danger: #D92D20;
+  --ok: #12B76A;
+  --seg-track: #ECEEF1;
+  --seg-thumb: #FFFFFF;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0E1013;
+    --panel: #16191E;
+    --ink: #E8EAED;
+    --ink-dim: #8B919A;
+    --line: #2A2E36;
+    --accent: #5B7FFF;
+    --accent-soft: rgba(91, 127, 255, 0.18);
+    --seg-track: #101318;
+    --seg-thumb: #2A2E36;
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* kill the default square tap flash on touch — custom hover/focus states
+   already signal interactivity */
+* { -webkit-tap-highlight-color: transparent; }
+
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  display: grid;
+  /* auto header row absorbs safe-area padding without row-math drift */
+  grid-template-rows: auto 1fr;
+  /* definite column: an auto implicit column would stretch to the max-content
+     of nowrap statusline text and push the whole page wider than the viewport */
+  grid-template-columns: 100%;
+  height: 100vh; /* fallback for browsers without dvh */
+  height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.6 system-ui, -apple-system, "PingFang SC", "Noto Sans CJK SC", "Segoe UI", sans-serif;
+  overflow: hidden;
+}
+
+/* ---------- header ---------- */
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative; /* anchors the preset dropdown menu */
+}
+
+.brand img {
+  border-radius: 6px;
+}
+
+/* preset trigger: reads as plain title text — no border, no chrome */
+#preset-trigger {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#preset-trigger:hover { background: var(--accent-soft); }
+
+#preset-trigger svg {
+  align-self: center;
+  color: var(--ink-dim);
+  transition: transform 0.15s;
+}
+
+#preset-trigger[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+#preset-cur {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-dim);
+}
+
+#preset-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 30px;
+  min-width: 140px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+  z-index: 30;
+}
+
+#preset-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+#preset-menu button:hover { background: var(--accent-soft); }
+
+#preset-menu button.current { color: var(--accent); }
+
+#preset-menu button svg { visibility: hidden; flex-shrink: 0; }
+#preset-menu button.current svg { visibility: visible; }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#sidebar-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+#sidebar-open:hover { background: var(--accent-soft); color: var(--accent); }
+
+#sidebar-open svg line,
+#sidebar-open svg circle {
+  stroke: currentColor;
+  stroke-width: 1.5;
+  fill: none;
+}
+
+#sidebar-open svg circle { fill: var(--panel); }
+
+.health {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+}
+
+.dot.ok { background: var(--ok); }
+.dot.err { background: var(--danger); }
+
+/* ---------- layout ---------- */
+
+main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 0;
+  /* grid items default to min-width: auto (min-content), so nowrap
+     statusline text would stretch the whole layout past the viewport */
+  min-width: 0;
+}
+
+#pane-image {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+}
+
+#pane-result {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---------- dropzone / image stage ---------- */
+
+#dropzone {
+  flex: 1;
+  margin: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  background: none;
+  color: var(--ink-dim);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+#dropzone:hover, #dropzone:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+
+body.dragging #dropzone {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: hidden;
+  /* faint dot grid so a small image does not float in emptiness */
+  background-image: radial-gradient(circle, var(--line) 1px, transparent 1.5px);
+  background-size: 16px 16px;
+  background-position: center;
+}
+
+#frame {
+  position: relative;
+  max-width: 100%;
+  max-height: 100%;
+  /* outline (not border) keeps the frame's layout box exactly at the image
+     aspect ratio — a border would inset the content box and re-introduce
+     letterbox drift between the img and the overlay */
+  outline: 1px solid var(--line);
+  outline-offset: -1px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.10);
+}
+
+/* aspect-ratio is set from the image in JS; the frame becomes the single
+   source of truth for display size, so the overlay (inset 0 of frame) and
+   the img can never disagree — object-fit:contain and the SVG's
+   xMidYMid meet apply the same min-scale+center math */
+#preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 7px;
+}
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+#overlay polygon {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: all;
+}
+
+#overlay polygon.hl {
+  fill: var(--accent-soft);
+  stroke-width: 3;
+}
+
+#overlay polygon.sel {
+  fill: color-mix(in srgb, var(--accent) 60%, transparent);
+  stroke-width: 3;
+}
+
+/* ---------- toolbars ---------- */
+
+/* result toolbar: [seg | 全选] left, 复制 right via space-between.
+   全选 is hidden outside select mode and takes no space, so seg/copy
+   never move */
+
+/* image toolbar: controls flush right against the pane edge */
+#img-toolbar { justify-content: flex-end; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+select {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+}
+
+.btn {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.toolbar .btn {
+  font-size: 13px;
+  padding: 5px 10px;
+}
+
+.btn:hover:not(:disabled) { border-color: var(--accent); }
+
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn.primary:hover:not(:disabled) { filter: brightness(1.1); }
+
+.btn.active { border-color: var(--accent); color: var(--accent); }
+
+.btn.small { padding: 3px 10px; font-size: 13px; }
+
+/* segmented control: browse | select | edit — one visible current mode,
+   thumb stays neutral so accent blue is reserved for the primary action */
+.seg {
+  display: flex;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--seg-track);
+}
+
+.seg-btn {
+  font: inherit;
+  font-size: 13px;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+.seg-btn.active {
+  background: var(--seg-thumb);
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.seg-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ---------- error bar ---------- */
+
+#errorbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--danger) 8%, var(--panel));
+  color: var(--danger);
+  font-size: 13px;
+}
+
+/* ---------- result output ---------- */
+
+#output {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.empty-hint {
+  color: var(--ink-dim);
+  text-align: center;
+  margin-top: 15vh;
+}
+
+.block {
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: default;
+  transition: background 0.1s;
+}
+
+.block.hl { background: var(--accent-soft); }
+
+.block.sel {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* select mode: native text selection would fight tap-to-select */
+#output.mode-select .block { user-select: none; }
+
+/* edit mode */
+#output.mode-edit .block {
+  cursor: text;
+  outline: none;
+  min-height: 1.6em;
+}
+
+#output.mode-edit .block:focus { background: var(--accent-soft); }
+
+/* ---------- status line ---------- */
+
+#statusline {
+  padding: 8px 16px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+  font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--ink-dim);
+  min-height: 20px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#statusline .spin {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 8px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: -1px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* ---------- sidebar (slide-over, right) ---------- */
+
+#sidebar-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 40;
+}
+
+#sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(300px, 85vw);
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  transform: translateX(100%);
+  transition: transform 0.2s ease;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+#sidebar.open { transform: translateX(0); }
+
+#sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+
+#sidebar-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+
+#sidebar-close:hover { background: var(--accent-soft); color: var(--accent); }
+
+#sidebar-close line { stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+
+#sidebar-body {
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink-dim);
+}
+
+.field select { align-self: flex-start; }
+
+/* ---------- mobile: stacked panes, no page scroll ---------- */
+
+@media (max-width: 879px) {
+  header { min-height: 48px; }
+
+  main {
+    grid-template-columns: 1fr;
+    /* fixed-height image pane + shrinking result pane: totals exactly one
+       viewport, so the page itself never scrolls */
+    grid-template-rows: 40vh minmax(0, 1fr);
+  }
+
+  #pane-image {
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  #dropzone { margin: 12px; }
+
+  #stage { padding: 10px; }
+
+  #output { padding: 10px 12px; }
+  #statusline { padding-left: 12px; padding-right: 12px; }
+  .empty-hint { margin-top: 8vh; }
+}
+
+/* iOS standalone: respect notch */
+@supports (padding: env(safe-area-inset-top)) {
+  header { padding-top: env(safe-area-inset-top); }
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
