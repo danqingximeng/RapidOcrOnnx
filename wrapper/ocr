@@ -20,7 +20,7 @@ SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 
 DEFAULT_ENGINE_PATH = "/opt/RapidOcrOnnx/build/RapidOcrOnnx"
 DEFAULT_MODELS_DIR = "/opt/RapidOcrOnnx/models"
-DEFAULT_CLS = "ch_ppocr_mobile_v2.0_cls_infer.onnx"
+DEFAULT_CLS = "PP-LCNet_x0_25_textline_ori.onnx"
 DEFAULT_PRESET = "small"
 
 BUILTIN_PRESETS = {
