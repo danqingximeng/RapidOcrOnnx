@@ -64,6 +64,11 @@ bool OcrLiteImpl::initModels(const std::string &detPath, const std::string &clsP
 
     Logger("--- Init AngleNet ---\n");
     angleNet.initModel(clsPath);
+    if (angleNet.isFixedInputShape()) {
+        Logger("cls input shape: %dx%d (from onnx)\n", angleNet.getDstWidth(), angleNet.getDstHeight());
+    } else {
+        Logger("cls input shape dynamic, using default %dx%d\n", angleNet.getDstWidth(), angleNet.getDstHeight());
+    }
 
     Logger("--- Init CrnnNet ---\n");
     crnnNet.initModel(recPath, keysPath);

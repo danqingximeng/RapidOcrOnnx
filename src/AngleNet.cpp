@@ -72,6 +72,22 @@ void AngleNet::initModel(const std::string &pathStr) {
 #endif
     inputNamesPtr = getInputNames(session);
     outputNamesPtr = getOutputNames(session);
+    detectInputShape();
+}
+
+void AngleNet::detectInputShape() {
+    Ort::AllocatorWithDefaultOptions allocator;
+    auto typeInfo = session->GetInputTypeInfo(0);
+    auto tensorInfo = typeInfo.GetTensorTypeAndShapeInfo();
+    auto dims = tensorInfo.GetShape();
+    if (dims.size() == 4 && dims[2] > 0 && dims[3] > 0) {
+        dstHeight = static_cast<int>(dims[2]);
+        dstWidth = static_cast<int>(dims[3]);
+        fixedInputShape = true;
+    }
+    // Dynamic HxW: old MobileNetV3 cls exports stay at default 192x48;
+    // PP-LCNet textline exports keep fixed 80x160 and take the branch above.
+    (void) allocator;
 }
 
 Angle scoreToAngle(const std::vector<float> &outputData) {
