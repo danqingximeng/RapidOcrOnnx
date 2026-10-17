@@ -36,6 +36,7 @@ MAX_REQUEST_BODY = 64 * 1024 * 1024
 OVERRIDE_KEYS = (
     "maxSide", "minSide", "maxSideLimit", "upscale",
     "thresh", "boxThresh", "unclipRatio", "doAngle", "mostAngle",
+    "sort", "para",
 )
 
 ENGINE_FLAGS = (
@@ -50,6 +51,8 @@ ENGINE_FLAGS = (
     ("do_angle", "--do-angle"),
     ("most_angle", "--most-angle"),
     ("gpu", "--gpu"),
+    ("sort", "--sort"),
+    ("para", "--para"),
 )
 
 HTTP_STATUS_BY_CODE = {100: 200, 101: 200, 200: 400, 201: 500, 202: 400}
@@ -63,15 +66,6 @@ def dict_for_rec(rec_name):
     if "v5" in rec_name:
         return "ppocrv5_dict.txt"
     return "ppocrv6_dict.txt"
-
-
-def sort_none(blocks):
-    return blocks
-
-
-SORTERS = {
-    "none": sort_none,
-}
 
 
 class ConfigError(Exception):
@@ -341,6 +335,10 @@ def add_engine_flags(parser):
     parser.add_argument("--do-angle", type=int, choices=(0, 1), help="angle net")
     parser.add_argument("--most-angle", type=int, choices=(0, 1), help="most possible angle index")
     parser.add_argument("--gpu", type=int, help="vulkan gpu index, -1 disables")
+    parser.add_argument("--sort", choices=("gaptree", "none"),
+                        help="reading-order sort of result blocks (default gaptree)")
+    parser.add_argument("--para", type=int, choices=(0, 1),
+                        help="paragraph end prediction in JSON 'end' field (default 1)")
 
 
 def build_parser():
@@ -363,8 +361,6 @@ def build_parser():
     )
     image_parser.add_argument("-j", "--json", action="store_true",
                               help="print full engine JSON per image (one line each) instead of plain text")
-    image_parser.add_argument("--sort", default="none", choices=sorted(SORTERS),
-                              help="reading-order sort applied to result blocks")
     image_parser.add_argument("images", nargs="+", help="image file paths")
 
     serve_parser = subparsers.add_parser(
@@ -393,7 +389,6 @@ def sanitize_result(result):
 def run_cli(args):
     cfg = load_config(args.config)
     client = make_client(cfg, args)
-    sorter = SORTERS[args.sort]
     failed = False
     texts = []
     try:
@@ -408,8 +403,11 @@ def run_cli(args):
                 print(json.dumps(result, ensure_ascii=False))
             code = result.get("code")
             if code == 100:
-                blocks = sorter(result.get("data") or [])
-                text = "\n".join(block["text"] for block in blocks)
+                blocks = result.get("data") or []
+                # Plain text is assembled from the engine's per-block "end"
+                # separators: para=1 gives paragraph text, para=0 (all ends
+                # "\n") gives one line per block.
+                text = "".join(b["text"] + b.get("end", "\n") for b in blocks).rstrip("\n")
                 if args.json is False:
                     texts.append(text)
             elif code == 101:
@@ -453,7 +451,7 @@ def make_handler(client):
 
         def do_POST(self):
             path = urlsplit(self.path).path
-            if path != "/v1/ocr":
+            if path not in ("/v1/ocr", "/v1/reprocess"):
                 self._send_json(404, {"code": 404, "message": "unknown api endpoint"})
                 return
             try:
@@ -475,6 +473,33 @@ def make_handler(client):
             if not isinstance(request, dict):
                 self._send_json(400, {"code": 400, "message": "request must be a json object"})
                 return
+
+            if path == "/v1/reprocess":
+                blocks = request.get("blocks")
+                if not isinstance(blocks, list):
+                    self._send_json(400, {"code": 400, "message": "blocks must be a list"})
+                    return
+                payload = {"text_blocks": blocks}
+                sort = request.get("sort")
+                if sort is not None:
+                    if sort not in ("gaptree", "none"):
+                        self._send_json(400, {"code": 400, "message": "sort must be gaptree or none"})
+                        return
+                    payload["sort"] = sort
+                para = request.get("para")
+                if para is not None:
+                    if para not in (0, 1):
+                        self._send_json(400, {"code": 400, "message": "para must be 0 or 1"})
+                        return
+                    payload["para"] = para
+                try:
+                    result = client.request(payload)
+                except EngineError as e:
+                    self._send_json(500, {"code": 500, "message": str(e)})
+                    return
+                self._send_json(HTTP_STATUS_BY_CODE.get(result.get("code"), 500), result)
+                return
+
             image = request.get("image")
             if not isinstance(image, str) or not image.startswith("data:") or ";base64," not in image:
                 self._send_json(400, {"code": 400,

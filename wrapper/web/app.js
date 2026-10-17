@@ -14,6 +14,8 @@ const copyBtn = $("#copy");
 const segBtns = [...document.querySelectorAll(".seg-btn")];
 const selectAllBtn = $("#select-all");
 const scaleSel = $("#scale");
+const sortSel = $("#sort");
+const paraSel = $("#para");
 const presetTrigger = $("#preset-trigger");
 const presetCur = $("#preset-cur");
 const presetMenu = $("#preset-menu");
@@ -230,27 +232,39 @@ clearBtn.addEventListener("click", () => {
 
 // ---------- ocr ----------
 
+function layoutOptions() {
+  return { sort: sortSel.value, para: Number(paraSel.value) };
+}
+
+async function postJSON(url, body, signal) {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+  const j = await r.json().catch(() => null);
+  if (!j) throw new Error("服务器返回了非 JSON 响应");
+  if (j.code === 100 || j.code === 101) {
+    renderResult(j);
+  } else {
+    showError(j.message || `识别失败（错误 ${j.code}）`, true);
+    setStatus("");
+  }
+}
+
 async function ocr() {
   if (!currentDataUrl) return;
   if (controller) controller.abort();
   controller = new AbortController();
-  setLoading(true);
+  setLoading(true, "识别中…");
   hideError();
   try {
-    const r = await fetch("v1/ocr", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ model: presetMenu.dataset.current, image: currentDataUrl }),
-      signal: controller.signal,
-    });
-    const j = await r.json().catch(() => null);
-    if (!j) throw new Error("服务器返回了非 JSON 响应");
-    if (j.code === 100 || j.code === 101) {
-      renderResult(j);
-    } else {
-      showError(j.message || `识别失败（错误 ${j.code}）`, true);
-      setStatus("");
-    }
+    await postJSON(
+      "v1/ocr",
+      { model: presetMenu.dataset.current, image: currentDataUrl, ...layoutOptions() },
+      controller.signal
+    );
   } catch (err) {
     if (err.name === "AbortError") return;
     showError("请求失败：" + err.message, true);
@@ -260,6 +274,35 @@ async function ocr() {
     setLoading(false);
   }
 }
+
+// Re-run only the layout stage on the blocks we already have: no re-OCR.
+async function reprocess() {
+  if (!blocks.length) {
+    if (currentDataUrl) return ocr();
+    return;
+  }
+  if (controller) controller.abort();
+  controller = new AbortController();
+  setLoading(true, "重排中…");
+  hideError();
+  try {
+    await postJSON(
+      "v1/reprocess",
+      { blocks, ...layoutOptions() },
+      controller.signal
+    );
+  } catch (err) {
+    if (err.name === "AbortError") return;
+    showError("请求失败：" + err.message, true);
+    setStatus("");
+    checkHealth();
+  } finally {
+    setLoading(false);
+  }
+}
+
+sortSel.addEventListener("change", () => reprocess());
+paraSel.addEventListener("change", () => reprocess());
 
 // ---------- modes ----------
 
@@ -318,13 +361,13 @@ output.addEventListener("paste", (e) => {
 // ---------- copy: selection if any, else everything ----------
 
 function collectText() {
-  if (mode === "edit") {
-    return [...output.querySelectorAll(".block")].map((el) => el.innerText).join("\n");
-  }
-  if (mode === "select" && selected.size) {
-    return blocks.filter((_, i) => selected.has(i)).map((b) => b.text).join("\n");
-  }
-  return blocks.map((b) => b.text).join("\n");
+  if (mode === "edit") commitEdit();
+  const sel =
+    mode === "select" && selected.size
+      ? blocks.filter((_, i) => selected.has(i))
+      : blocks;
+  // The engine's per-block "end" separators carry the paragraph structure.
+  return sel.map((b) => b.text + (b.end ?? "\n")).join("");
 }
 
 copyBtn.addEventListener("click", async () => {
@@ -365,6 +408,7 @@ function renderResult(j) {
     for (const b of blocks) {
       const div = document.createElement("div");
       div.className = "block";
+      if (b.end === "\n") div.classList.add("para-end");
       div.textContent = b.text;
       output.appendChild(div);
     }
@@ -469,8 +513,8 @@ preview.addEventListener("load", drawBoxes);
 
 // ---------- status / errors ----------
 
-function setLoading(loading) {
-  statusline.innerHTML = loading ? '<span class="spin"></span>识别中…' : statusline.innerHTML;
+function setLoading(loading, label = "识别中…") {
+  statusline.innerHTML = loading ? '<span class="spin"></span>' + label : statusline.innerHTML;
   if (loading) {
     copyBtn.disabled = true;
     for (const btn of segBtns) btn.disabled = true;

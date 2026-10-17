@@ -452,6 +452,9 @@ select {
   transition: background 0.1s;
 }
 
+/* paragraph grouping: extra gap after a block that ends a paragraph */
+.block.para-end { margin-bottom: 0.55em; }
+
 .block.hl { background: var(--accent-soft); }
 
 .block.sel {
@@ -561,19 +564,26 @@ select {
 #sidebar-close line { stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
 
 #sidebar-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   padding: 16px;
   overflow-y: auto;
 }
 
+/* label left, select right; flex-basis 0 keeps all selects the same width */
 .field {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
   font-size: 13px;
   color: var(--ink-dim);
 }
 
-.field select { align-self: flex-start; }
+.field > span { flex: none; }
+
+.field select { flex: 1 1 0; min-width: 0; }
 
 /* ---------- mobile: stacked panes, no page scroll ---------- */
 
