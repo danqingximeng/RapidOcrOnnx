@@ -37,6 +37,9 @@ struct TextBlock {
     float angleScore;
     double angleTime;
     std::string text;
+    // Separator after text: "\n" paragraph end, "" CJK continuation,
+    // " " non-CJK continuation. Predicted by textlayout.
+    std::string end;
     std::vector<float> charScores;
     double crnnTime;
     double blockTime;

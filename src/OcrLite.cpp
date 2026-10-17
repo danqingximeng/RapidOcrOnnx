@@ -26,6 +26,14 @@ void OcrLite::setGpuIndex(int gpuIndex) {
     pImpl->setGpuIndex(gpuIndex);
 }
 
+void OcrLite::setSortMode(const std::string &sortMode) {
+    pImpl->setSortMode(sortMode);
+}
+
+void OcrLite::setParagraph(bool paragraph) {
+    pImpl->setParagraph(paragraph);
+}
+
 bool OcrLite::initModels(const std::string &detPath, const std::string &clsPath,
                          const std::string &recPath, const std::string &keysPath) {
     return pImpl->initModels(detPath, clsPath, recPath, keysPath);

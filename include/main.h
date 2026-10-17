@@ -14,7 +14,9 @@ enum {
     OPT_MIN_SIDE = 1008,
     OPT_MAX_SIDE_LIMIT = 1009,
     OPT_UPSCALE = 1010,
-    OPT_SERVER = 1011
+    OPT_SERVER = 1011,
+    OPT_SORT = 1012,
+    OPT_PARA = 1013
 };
 
 static const struct option long_options[] = {
@@ -34,6 +36,8 @@ static const struct option long_options[] = {
         {"unclip-ratio",   required_argument, NULL, 'u'},
         {"do-angle",       required_argument, NULL, 'a'},
         {"most-angle",     required_argument, NULL, 'A'},
+        {"sort",           required_argument, NULL, OPT_SORT},
+        {"para",           required_argument, NULL, OPT_PARA},
         {"version",        no_argument,       NULL, 'v'},
         {"help",           no_argument,       NULL, 'h'},
         {"gpu",            required_argument, NULL, 'G'},
@@ -45,7 +49,7 @@ static const struct option long_options[] = {
 
 const char *usageMsg = "(-i --image) (--det) (--cls) (--rec) (--key) [--dir]\n"\
                        "[--thread] [--max-side] [--min-side] [--max-side-limit] [--upscale] [--thresh] [--box-thresh] [--unclip-ratio]\n" \
-                       "[--do-angle] [--most-angle] [--gpu]\n" \
+                       "[--do-angle] [--most-angle] [--gpu] [--sort] [--para]\n" \
                        "[--save-img] [--debug]\n" \
                        "or persistent server mode:\n" \
                        "--server (--det) (--cls) (--rec) (--key) [--dir] [same optional params]\n" \
@@ -66,16 +70,18 @@ const char *optionalMsg = "--dir: directory prefix; when set, --det/--cls/--rec/
                           "--thresh: prob map binarization threshold(float), default: 0.3\n" \
                           "--box-thresh: box confidence threshold(float), default: 0.5\n" \
                           "--unclip-ratio: box expansion ratio(float), default: 1.5\n" \
-                          "--do-angle: Enable(1)/Disable(0) Angle Net, default: Enable\n" \
-                          "--most-angle: Enable(1)/Disable(0) Most Possible AngleIndex, default: Enable\n" \
-                          "--gpu: Disable(-1)/GPU0(0)/GPU1(1)/... Use Vulkan GPU accelerate, default: Disable(-1)\n" \
+                           "--do-angle: Enable(1)/Disable(0) Angle Net, default: Enable\n" \
+                           "--most-angle: Enable(1)/Disable(0) Most Possible AngleIndex, default: Enable\n" \
+                           "--sort: reading-order sort of result blocks: gaptree|none, default: gaptree\n" \
+                           "--para: Enable(1)/Disable(0) paragraph end prediction (JSON 'end' field), default: Enable\n" \
+                           "--gpu: Disable(-1)/GPU0(0)/GPU1(1)/... Use Vulkan GPU accelerate, default: Disable(-1)\n" \
                            "--save-img: write the box-drawn image, default <image>-result.jpg," \
                            " or use --save-img=PATH to choose the path\n" \
                            "--debug: detailed logs to stderr (stdout stays a single JSON), default: off\n" \
                            "--server: persistent mode; incompatible with -i. Prints handshake, then reads one JSON\n" \
                            "  request per stdin line: {\"image_path\":\"...\"} or {\"image_base64\":\"...\"},\n" \
                            "  optionally overriding detection params (maxSide, minSide, maxSideLimit, upscale,\n" \
-                           "  thresh, boxThresh, unclipRatio, doAngle, mostAngle), writes one result JSON per\n" \
+                           "  thresh, boxThresh, unclipRatio, doAngle, mostAngle, sort, para), writes one result JSON per\n" \
                            "  line to stdout, exits on EOF\n\n";
 
 const char *otherMsg = "-v --version: show version\n" \

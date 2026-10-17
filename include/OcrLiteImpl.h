@@ -23,6 +23,10 @@ public:
 
     void setGpuIndex(int gpuIndex);
 
+    void setSortMode(const std::string &sortMode);
+
+    void setParagraph(bool paragraph);
+
     bool initModels(const std::string &detPath, const std::string &clsPath,
                     const std::string &recPath, const std::string &keysPath);
 
@@ -47,6 +51,8 @@ private:
     bool isOutputPartImg = false;
     bool isOutputResultImg = false;
     std::string resultImgPath;
+    std::string sortMode = "gaptree";
+    bool paragraphEnabled = true;
     DbNet dbNet;
     AngleNet angleNet;
     CrnnNet crnnNet;

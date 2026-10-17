@@ -20,6 +20,11 @@ public:
 
     void setGpuIndex(int gpuIndex);
 
+    // Reading-order sort ("gaptree" | "none") and paragraph end prediction.
+    void setSortMode(const std::string &sortMode);
+
+    void setParagraph(bool paragraph);
+
     bool initModels(const std::string &detPath, const std::string &clsPath,
                     const std::string &recPath, const std::string &keysPath);
 

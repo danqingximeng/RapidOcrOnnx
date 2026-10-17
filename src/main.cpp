@@ -6,8 +6,11 @@
 #include "version.h"
 #include "OcrLite.h"
 #include "OcrUtils.h"
+#include "TextLayout.h"
 #include "nlohmann/json.hpp"
 #include <opencv2/imgcodecs.hpp>
+#include <algorithm>
+#include <vector>
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -26,6 +29,8 @@ struct DetectParams {
     float unclipRatio = 1.5f;
     int doAngle = 1;
     int mostAngle = 1;
+    std::string sort = "gaptree";
+    int para = 1;
 };
 
 void printHelp(FILE *out, char *argv0) {
@@ -60,6 +65,7 @@ static json buildResultJson(const OcrResult &result, const std::string &image,
     for (const auto &block: result.textBlocks) {
         json item;
         item["text"] = block.text;
+        item["end"] = block.end;
         json box = json::array();
         for (const auto &pt: block.boxPoint) {
             box.push_back(json::array({pt.x, pt.y}));
@@ -111,6 +117,8 @@ static json buildResultJson(const OcrResult &result, const std::string &image,
                          {"unclipRatio", p.unclipRatio},
                          {"doAngle",     p.doAngle},
                          {"mostAngle",   p.mostAngle},
+                         {"sort",        p.sort},
+                         {"para",        p.para},
                          {"gpu",         flagGpu}}}
     };
     return out;
@@ -170,10 +178,6 @@ static int runServer(OcrLite &ocrLite, const DetectParams &defaults,
         if (req.contains("image_base64") && req["image_base64"].is_string()) {
             imgB64 = req["image_base64"].get<std::string>();
         }
-        if (imgPath.empty() && imgB64.empty()) {
-            printErrorJson(202, "missing image_path or image_base64");
-            continue;
-        }
 
         DetectParams p = defaults;
         try {
@@ -186,8 +190,90 @@ static int runServer(OcrLite &ocrLite, const DetectParams &defaults,
             if (req.contains("unclipRatio")) p.unclipRatio = req["unclipRatio"].get<float>();
             if (req.contains("doAngle")) p.doAngle = req["doAngle"].get<int>() != 0 ? 1 : 0;
             if (req.contains("mostAngle")) p.mostAngle = req["mostAngle"].get<int>() != 0 ? 1 : 0;
+            if (req.contains("sort")) p.sort = req["sort"].get<std::string>();
+            if (req.contains("para")) p.para = req["para"].get<int>() != 0 ? 1 : 0;
         } catch (const json::exception &e) {
             printErrorJson(202, std::string("invalid param override: ") + e.what());
+            continue;
+        }
+        if (p.sort != "gaptree" && p.sort != "none") {
+            printErrorJson(202, "invalid sort mode: " + p.sort);
+            continue;
+        }
+
+        // Layout-only request: re-sort / re-end previously recognized blocks,
+        // skipping det/cls/rec. Input entries keep all their original fields.
+        if (req.contains("text_blocks")) {
+            if (!req["text_blocks"].is_array()) {
+                printErrorJson(202, "text_blocks must be an array");
+                continue;
+            }
+            std::vector<json> originals;
+            std::vector<textlayout::LayoutBlock> lb;
+            bool bad = false;
+            for (const auto &el: req["text_blocks"]) {
+                if (!el.is_object() || !el.contains("box") || !el["box"].is_array() || el["box"].size() != 4) {
+                    printErrorJson(202, "text_blocks entries need box: 4 [x,y] points");
+                    bad = true;
+                    break;
+                }
+                double xs[4], ys[4];
+                bool ptOk = true;
+                for (int k = 0; k < 4; ++k) {
+                    const json &pt = el["box"][k];
+                    if (!pt.is_array() || pt.size() != 2 || !pt[0].is_number() || !pt[1].is_number()) {
+                        ptOk = false;
+                        break;
+                    }
+                    xs[k] = pt[0].get<double>();
+                    ys[k] = pt[1].get<double>();
+                }
+                if (!ptOk) {
+                    printErrorJson(202, "text_blocks entries need box: 4 [x,y] points");
+                    bad = true;
+                    break;
+                }
+                std::string text;
+                if (el.contains("text")) {
+                    if (!el["text"].is_string()) {
+                        printErrorJson(202, "text_blocks entry text must be a string");
+                        bad = true;
+                        break;
+                    }
+                    text = el["text"].get<std::string>();
+                }
+                textlayout::LayoutBlock b;
+                b.x0 = std::min(xs[0], std::min(xs[1], std::min(xs[2], xs[3])));
+                b.y0 = std::min(ys[0], std::min(ys[1], std::min(ys[2], ys[3])));
+                b.x1 = std::max(xs[0], std::max(xs[1], std::max(xs[2], xs[3])));
+                b.y1 = std::max(ys[0], std::max(ys[1], std::max(ys[2], ys[3])));
+                b.text = text;
+                lb.push_back(b);
+                originals.push_back(el);
+            }
+            if (bad) continue;
+            textlayout::LayoutResult lr = textlayout::analyze(lb, p.sort, p.para != 0);
+            json data = json::array();
+            for (size_t i = 0; i < lr.order.size(); ++i) {
+                json item = originals[lr.order[i]];
+                item["end"] = lr.ends[i];
+                data.push_back(item);
+            }
+            json out;
+            out["code"] = data.empty() ? 101 : 100;
+            out["data"] = data;
+            out["meta"] = {
+                    {"version", VERSION},
+                    {"image",   "<text_blocks>"},
+                    {"params",  {{"sort", p.sort}, {"para", p.para}}}
+            };
+            printf("%s\n", out.dump().c_str());
+            fflush(stdout);
+            continue;
+        }
+
+        if (imgPath.empty() && imgB64.empty()) {
+            printErrorJson(202, "missing image_path or image_base64");
             continue;
         }
 
@@ -219,6 +305,8 @@ static int runServer(OcrLite &ocrLite, const DetectParams &defaults,
         }
 
         try {
+            ocrLite.setSortMode(p.sort);
+            ocrLite.setParagraph(p.para != 0);
             OcrResult result = ocrLite.detect(img, p.maxSide, p.minSide, p.maxSideLimit, p.upscale != 0,
                                               p.boxThresh, p.thresh, p.unclipRatio,
                                               p.doAngle != 0, p.mostAngle != 0);
@@ -329,6 +417,12 @@ int main(int argc, char **argv) {
             case OPT_SERVER:
                 server = true;
                 break;
+            case OPT_SORT:
+                params.sort = optarg;
+                break;
+            case OPT_PARA:
+                params.para = (int) strtol(optarg, NULL, 10) != 0 ? 1 : 0;
+                break;
             default:
                 printErrorJson(202, "invalid option");
                 return 1;
@@ -342,6 +436,10 @@ int main(int argc, char **argv) {
     if (server && saveImg && saveImgPath.empty()) {
         // Mat-based detect has no source path to derive a result image name from.
         printErrorJson(202, "--save-img in --server mode requires an explicit path");
+        return 1;
+    }
+    if (params.sort != "gaptree" && params.sort != "none") {
+        printErrorJson(202, "invalid --sort value: " + params.sort + " (expected gaptree|none)");
         return 1;
     }
     if (!server) {
@@ -373,6 +471,8 @@ int main(int argc, char **argv) {
 
     OcrLite ocrLite;
     ocrLite.setNumThread(numThread);
+    ocrLite.setSortMode(params.sort);
+    ocrLite.setParagraph(params.para != 0);
     ocrLite.initLogger(
             debug,//isOutputConsole, logs to stderr so stdout stays pure JSON
             false,//isOutputPartImg

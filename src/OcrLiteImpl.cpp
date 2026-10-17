@@ -1,30 +1,10 @@
 #include "OcrLiteImpl.h"
 #include "OcrUtils.h"
+#include "TextLayout.h"
 #include <stdarg.h> //windows&linux
 #include <cstdlib>
 #include <stdexcept>
 #include <algorithm>
-
-// Align with PaddleOCR tools/infer/predict_system.py sorted_boxes
-static void sortTextBoxesByReadingOrder(std::vector<TextBox> &textBoxes) {
-    std::stable_sort(textBoxes.begin(), textBoxes.end(),
-                     [](const TextBox &a, const TextBox &b) {
-                         if (a.boxPoint[0].y != b.boxPoint[0].y) return a.boxPoint[0].y < b.boxPoint[0].y;
-                         return a.boxPoint[0].x < b.boxPoint[0].x;
-                     });
-    int numBoxes = (int) textBoxes.size();
-    for (int i = 0; i < numBoxes - 1; ++i) {
-        for (int j = i; j >= 0; --j) {
-            const cv::Point &prev = textBoxes[j].boxPoint[0];
-            const cv::Point &next = textBoxes[j + 1].boxPoint[0];
-            if (std::abs(next.y - prev.y) < 10 && next.x < prev.x) {
-                std::swap(textBoxes[j], textBoxes[j + 1]);
-            } else {
-                break;
-            }
-        }
-    }
-}
 
 OcrLiteImpl::OcrLiteImpl() {
     loggerBuffer = (char *)malloc(8192);
@@ -54,6 +34,14 @@ void OcrLiteImpl::setGpuIndex(int gpuIndex) {
     dbNet.setGpuIndex(gpuIndex);
     angleNet.setGpuIndex(gpuIndex);
     crnnNet.setGpuIndex(gpuIndex);
+}
+
+void OcrLiteImpl::setSortMode(const std::string &mode) {
+    sortMode = mode;
+}
+
+void OcrLiteImpl::setParagraph(bool paragraph) {
+    paragraphEnabled = paragraph;
 }
 
 bool OcrLiteImpl::initModels(const std::string &detPath, const std::string &clsPath,
@@ -177,8 +165,6 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
     double dbNetTime = endDbNetTime - startTime;
     Logger("dbNetTime(%fms)\n", dbNetTime);
 
-    sortTextBoxesByReadingOrder(textBoxes);
-
     for (size_t i = 0; i < textBoxes.size(); ++i) {
         Logger("TextBox[%d][score(%f),[x: %d, y: %d], [x: %d, y: %d], [x: %d, y: %d], [x: %d, y: %d]]\n", i,
                textBoxes[i].score,
@@ -230,9 +216,44 @@ OcrResult OcrLiteImpl::detect(const char *path, const char *imgName,
     std::vector<TextBlock> textBlocks;
     for (size_t i = 0; i < textLines.size(); ++i) {
         TextBlock textBlock{textBoxes[i].boxPoint, textBoxes[i].score, angles[i].index, angles[i].score,
-                            angles[i].time, textLines[i].text, textLines[i].charScores, textLines[i].time,
-                            angles[i].time + textLines[i].time};
+                            angles[i].time, textLines[i].text, std::string(), textLines[i].charScores,
+                            textLines[i].time, angles[i].time + textLines[i].time};
         textBlocks.emplace_back(textBlock);
+    }
+
+    //---------- layout: reading-order sort + paragraph ends ----------
+    Logger("---------- step: layout (sort:%s para:%d) ----------\n",
+           sortMode.c_str(), paragraphEnabled ? 1 : 0);
+    {
+        std::vector<textlayout::LayoutBlock> lb;
+        lb.reserve(textBlocks.size());
+        for (size_t i = 0; i < textBlocks.size(); ++i) {
+            double x0 = textBlocks[i].boxPoint[0].x, y0 = textBlocks[i].boxPoint[0].y;
+            double x1 = x0, y1 = y0;
+            for (size_t p = 1; p < textBlocks[i].boxPoint.size(); ++p) {
+                x0 = std::min(x0, (double) textBlocks[i].boxPoint[p].x);
+                y0 = std::min(y0, (double) textBlocks[i].boxPoint[p].y);
+                x1 = std::max(x1, (double) textBlocks[i].boxPoint[p].x);
+                y1 = std::max(y1, (double) textBlocks[i].boxPoint[p].y);
+            }
+            textlayout::LayoutBlock b;
+            b.x0 = x0;
+            b.y0 = y0;
+            b.x1 = x1;
+            b.y1 = y1;
+            b.text = textBlocks[i].text;
+            lb.push_back(b);
+        }
+        textlayout::LayoutResult lr = textlayout::analyze(lb, sortMode, paragraphEnabled);
+        std::vector<TextBlock> laidOut;
+        laidOut.reserve(lr.order.size());
+        for (size_t i = 0; i < lr.order.size(); ++i) {
+            TextBlock tb = textBlocks[lr.order[i]];
+            tb.end = lr.ends[i];
+            laidOut.push_back(tb);
+        }
+        Logger("layout: %zu blocks after layout (from %zu)\n", laidOut.size(), textBlocks.size());
+        textBlocks.swap(laidOut);
     }
 
     double endTime = getCurrentTime();

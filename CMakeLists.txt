@@ -114,7 +114,8 @@ if (OCR_BENCHMARK AND (OCR_OUTPUT STREQUAL "BIN"))
             src/getopt.cpp
             src/OcrLiteImpl.cpp
             src/OcrLite.cpp
-            src/OcrUtils.cpp)
+            src/OcrUtils.cpp
+            src/TextLayout.cpp)
     target_link_libraries(benchmark ${OnnxRuntime_LIBS} ${OpenCV_LIBS})
     target_compile_definitions(benchmark PRIVATE __EXEC__)
 
