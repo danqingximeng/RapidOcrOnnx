@@ -73,10 +73,9 @@
   <section id="pane-result">
     <div id="result-toolbar" class="toolbar">
       <div class="toolbar-group">
-        <div id="mode-seg" class="seg" role="radiogroup" aria-label="结果浏览模式">
-          <button class="seg-btn active" data-mode="browse" role="radio" aria-checked="true" disabled>浏览</button>
-          <button class="seg-btn" data-mode="edit" role="radio" aria-checked="false" disabled>编辑</button>
-          <button class="seg-btn" data-mode="select" role="radio" aria-checked="false" disabled>选择</button>
+        <div id="mode-seg" class="seg" role="radiogroup" aria-label="结果视图">
+          <button class="seg-btn" data-mode="blocks" role="radio" aria-checked="false" disabled title="按框查看与选择">框</button>
+          <button class="seg-btn active" data-mode="text" role="radio" aria-checked="true" disabled title="成文阅读与编辑">文</button>
         </div>
         <button id="select-all" class="btn" type="button" hidden>全选</button>
       </div>
@@ -86,7 +85,7 @@
       <span id="error-text"></span>
       <button id="retry" class="btn small" type="button" hidden>重试</button>
     </div>
-    <div id="output">
+    <div id="output" class="mode-text">
       <p class="empty-hint">选择、拖拽或粘贴图片，识别结果显示在这里</p>
     </div>
     <div id="statusline"></div>

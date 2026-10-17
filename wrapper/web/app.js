@@ -37,9 +37,8 @@ let currentFile = null;   // original File, kept so scale changes re-encode from
 let currentDataUrl = null; // data URL of the normalized image, sent to /v1/ocr
 let blocks = [];          // data[] of last result; .text reflects edits
 let showBoxes = true;
-let mode = "browse";      // browse | select | edit
-let selected = new Set(); // block indexes picked in select mode
-let sticky = -1;          // last clicked block in browse mode
+let mode = "text";        // blocks | text
+let selected = new Set(); // block indexes picked as the copy source
 let controller = null;    // AbortController of in-flight request
 
 // ---------- health & models ----------
@@ -281,6 +280,7 @@ async function reprocess() {
     if (currentDataUrl) return ocr();
     return;
   }
+  commitEdits(); // pending text edits must go with the blocks
   if (controller) controller.abort();
   controller = new AbortController();
   setLoading(true, "重排中…");
@@ -307,53 +307,41 @@ paraSel.addEventListener("change", () => reprocess());
 // ---------- modes ----------
 
 function setMode(next) {
-  if (mode === "edit" && next !== "edit") commitEdit();
+  if (mode === "text" && next !== "text") commitEdits();
   mode = next;
-  setEditable(next === "edit");
   for (const btn of segBtns) {
     const on = btn.dataset.mode === next;
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-checked", String(on));
   }
-  selectAllBtn.hidden = next !== "select";
-  output.classList.toggle("mode-select", next === "select");
-  output.classList.toggle("mode-edit", next === "edit");
-  if (next !== "select") {
-    selected.clear();
-    syncSelection();
-  }
-  if (next !== "browse") {
-    sticky = -1;
-    setHighlight(-1);
-  }
+  selectAllBtn.hidden = next !== "blocks";
+  output.classList.toggle("mode-blocks", next === "blocks");
+  output.classList.toggle("mode-text", next === "text");
+  renderView();
 }
 
 for (const btn of segBtns)
   btn.addEventListener("click", () => setMode(btn.dataset.mode));
 
 selectAllBtn.addEventListener("click", () => {
-  const all = selected.size === blocks.length;
+  const all = blocks.length > 0 && selected.size === blocks.length;
   selected.clear();
   if (!all) blocks.forEach((_, i) => selected.add(i));
   syncSelection();
 });
 
-function setEditable(on) {
+// Text mode edits are committed on every mode switch, before copy and
+// before reprocess, so blocks[].text stays the source of truth.
+function commitEdits() {
+  if (mode !== "text") return;
   for (const el of output.querySelectorAll(".block")) {
-    el.contentEditable = on ? "true" : "false";
-    el.spellcheck = false;
+    const i = Number(el.dataset.idx);
+    if (blocks[i]) blocks[i].text = el.innerText;
   }
 }
 
-function commitEdit() {
-  const els = output.querySelectorAll(".block");
-  els.forEach((el, i) => {
-    if (blocks[i]) blocks[i].text = el.innerText;
-  });
-}
-
 output.addEventListener("paste", (e) => {
-  if (mode !== "edit") return;
+  if (mode !== "text" || !e.target.closest?.(".block")) return;
   e.preventDefault();
   document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
 });
@@ -361,11 +349,10 @@ output.addEventListener("paste", (e) => {
 // ---------- copy: selection if any, else everything ----------
 
 function collectText() {
-  if (mode === "edit") commitEdit();
-  const sel =
-    mode === "select" && selected.size
-      ? blocks.filter((_, i) => selected.has(i))
-      : blocks;
+  commitEdits();
+  const sel = selected.size
+    ? blocks.filter((_, i) => selected.has(i))
+    : blocks;
   // The engine's per-block "end" separators carry the paragraph structure.
   return sel.map((b) => b.text + (b.end ?? "\n")).join("");
 }
@@ -399,26 +386,61 @@ boxesBtn.addEventListener("click", () => {
 
 function renderResult(j) {
   blocks = j.data || [];
-  output.innerHTML = "";
   selected.clear();
-  sticky = -1;
-  if (blocks.length === 0) {
-    output.innerHTML = '<p class="empty-hint">未识别到文字</p>';
-  } else {
-    for (const b of blocks) {
-      const div = document.createElement("div");
-      div.className = "block";
-      if (b.end === "\n") div.classList.add("para-end");
-      div.textContent = b.text;
-      output.appendChild(div);
-    }
-  }
+  renderView();
   const has = blocks.length > 0;
   copyBtn.disabled = !has;
   for (const btn of segBtns) btn.disabled = !has;
-  if (mode === "edit") setEditable(true);
   drawBoxes();
   setStatus(formatStatus(j));
+}
+
+// Rebuild the visible view from blocks[]. Both modes render the same data;
+// text mode shows exactly what copy produces, blocks mode one row per box.
+function renderView() {
+  output.innerHTML = "";
+  if (!blocks.length) {
+    output.innerHTML = '<p class="empty-hint">未识别到文字</p>';
+    syncSelection();
+    return;
+  }
+  if (mode === "blocks") renderBlocksView();
+  else renderTextView();
+  syncSelection();
+}
+
+function renderBlocksView() {
+  blocks.forEach((b, i) => {
+    const div = document.createElement("div");
+    div.className = "block";
+    div.dataset.idx = String(i);
+    div.textContent = b.text;
+    output.appendChild(div);
+  });
+}
+
+function renderTextView() {
+  // Group blocks into paragraphs by end === "\n"; spans render inline so the
+  // flow equals the copy output. end === " " becomes a real space text node:
+  // CSS cannot produce it, and native selection copy must include it.
+  let para = document.createElement("div");
+  para.className = "para";
+  blocks.forEach((b, i) => {
+    const span = document.createElement("span");
+    span.className = "block";
+    span.contentEditable = "true";
+    span.spellcheck = false;
+    span.dataset.idx = String(i);
+    span.textContent = b.text;
+    para.appendChild(span);
+    if (b.end === " ") para.appendChild(document.createTextNode(" "));
+    if (b.end === "\n") {
+      output.appendChild(para);
+      para = document.createElement("div");
+      para.className = "para";
+    }
+  });
+  if (para.childNodes.length) output.appendChild(para);
 }
 
 function drawBoxes() {
@@ -447,53 +469,52 @@ function setHighlight(idx) {
   output.querySelectorAll(".block.hl").forEach((el) => el.classList.remove("hl"));
   overlay.querySelectorAll("polygon.hl").forEach((el) => el.classList.remove("hl"));
   if (idx < 0) return;
-  output.children[idx]?.classList.add("hl");
+  output.querySelector(`.block[data-idx="${idx}"]`)?.classList.add("hl");
   overlay.querySelector(`polygon[data-idx="${idx}"]`)?.classList.add("hl");
 }
 
-function blockIndex(e) {
-  return [...output.children].indexOf(e.target.closest(".block"));
+function blockIdxFrom(el) {
+  const b = el?.closest?.(".block");
+  return b ? Number(b.dataset.idx) : -1;
 }
 
 output.addEventListener("mouseover", (e) => {
-  if (mode !== "browse") return;
-  const i = blockIndex(e);
+  const i = blockIdxFrom(e.target);
   if (i >= 0) setHighlight(i);
 });
-output.addEventListener("mouseleave", () => {
-  if (mode === "browse") setHighlight(sticky);
-});
+output.addEventListener("mouseleave", () => setHighlight(-1));
 
 overlay.addEventListener("mouseover", (e) => {
-  if (mode !== "browse") return;
   const idx = e.target.dataset?.idx;
   if (idx !== undefined) setHighlight(Number(idx));
 });
-overlay.addEventListener("mouseleave", () => {
-  if (mode === "browse") setHighlight(sticky);
-});
+overlay.addEventListener("mouseleave", () => setHighlight(-1));
 
-// click: browse toggles sticky highlight, select toggles membership
+// text pane: blocks mode click toggles selection; text mode leaves the
+// click to the native caret / editor.
 output.addEventListener("click", (e) => {
-  const i = blockIndex(e);
-  if (i < 0) return;
-  if (mode === "select") toggleSelect(i);
-  else if (mode === "browse") {
-    sticky = sticky === i ? -1 : i;
-    setHighlight(sticky);
-  }
+  if (mode !== "blocks") return;
+  const i = blockIdxFrom(e.target);
+  if (i >= 0) toggleSelect(i);
 });
 
+// image pane: a click always toggles selection in both modes; scroll the
+// text pane only when the block became selected (deselecting a noise box
+// must not yank the view around, e.g. after 全选 plus manual pruning).
 overlay.addEventListener("click", (e) => {
   const idx = e.target.dataset?.idx;
   if (idx === undefined) return;
   const i = Number(idx);
-  if (mode === "select") toggleSelect(i);
-  else if (mode === "browse") {
-    sticky = sticky === i ? -1 : i;
-    setHighlight(sticky);
-  }
+  const becameSelected = !selected.has(i);
+  toggleSelect(i);
+  if (becameSelected || mode === "text") scrollToBlock(i);
 });
+
+function scrollToBlock(i) {
+  output
+    .querySelector(`.block[data-idx="${i}"]`)
+    ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
 
 function toggleSelect(i) {
   if (selected.has(i)) selected.delete(i);
@@ -502,7 +523,9 @@ function toggleSelect(i) {
 }
 
 function syncSelection() {
-  [...output.children].forEach((el, i) => el.classList.toggle("sel", selected.has(i)));
+  output.querySelectorAll(".block").forEach((el) =>
+    el.classList.toggle("sel", selected.has(Number(el.dataset.idx)))
+  );
   overlay.querySelectorAll("polygon").forEach((p) =>
     p.classList.toggle("sel", selected.has(Number(p.dataset.idx)))
   );

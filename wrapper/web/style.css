@@ -386,7 +386,7 @@ select {
 
 .btn.small { padding: 3px 10px; font-size: 13px; }
 
-/* segmented control: browse | select | edit — one visible current mode,
+/* segmented control: blocks | text — one visible current mode,
    thumb stays neutral so accent blue is reserved for the primary action */
 .seg {
   display: flex;
@@ -452,9 +452,6 @@ select {
   transition: background 0.1s;
 }
 
-/* paragraph grouping: extra gap after a block that ends a paragraph */
-.block.para-end { margin-bottom: 0.55em; }
-
 .block.hl { background: var(--accent-soft); }
 
 .block.sel {
@@ -462,17 +459,33 @@ select {
   color: #fff;
 }
 
-/* select mode: native text selection would fight tap-to-select */
-#output.mode-select .block { user-select: none; }
+/* blocks mode: tap-to-select would fight native text selection */
+#output.mode-blocks .block { user-select: none; }
 
-/* edit mode */
-#output.mode-edit .block {
-  cursor: text;
-  outline: none;
-  min-height: 1.6em;
+/* text mode: blocks render inline inside paragraph flow, so the view equals
+   the copy output; the dotted underline marks box boundaries */
+#output.mode-text .para {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 0.55em;
 }
 
-#output.mode-edit .block:focus { background: var(--accent-soft); }
+#output.mode-text .block {
+  padding: 0 1px;
+  cursor: text;
+  outline: none;
+  border-bottom: 1px dotted var(--line);
+}
+
+#output.mode-text .block:focus { background: var(--accent-soft); }
+
+/* focused + selected: keep solid selection colors, else the higher-specificity
+   focus tint washes out the white text inherited from .block.sel */
+#output.mode-text .block.sel:focus {
+  background: var(--accent);
+  color: #fff;
+  caret-color: #fff;
+}
 
 /* ---------- status line ---------- */
 
