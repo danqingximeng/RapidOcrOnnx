@@ -6,6 +6,12 @@
   --line: #E5E7EB;
   --accent: #2F5BFF;
   --accent-soft: rgba(47, 91, 255, 0.12);
+  /* blue = included in the copy scope (stable) */
+  --sel-soft: rgba(47, 91, 255, 0.15);
+  --sel-line: rgba(47, 91, 255, 0.62);
+  /* amber = attention: hover, focus, cross-pane locate (transient) */
+  --attention: #D97706;
+  --attention-soft: rgba(217, 119, 6, 0.18);
   --danger: #D92D20;
   --ok: #12B76A;
   --seg-track: #ECEEF1;
@@ -21,6 +27,10 @@
     --line: #2A2E36;
     --accent: #5B7FFF;
     --accent-soft: rgba(91, 127, 255, 0.18);
+    --sel-soft: rgba(91, 127, 255, 0.22);
+    --sel-line: rgba(91, 127, 255, 0.75);
+    --attention: #F59E0B;
+    --attention-soft: rgba(245, 158, 11, 0.20);
     --seg-track: #101318;
     --seg-thumb: #2A2E36;
   }
@@ -297,23 +307,28 @@ body.dragging #dropzone {
   height: 100%;
 }
 
+/* box states: gray = excluded, blue = included (default), amber = hover
+   locate. Width stays a hairline so a dense page never turns into a mesh;
+   hover changes hue, not weight, and overrides selection. */
 #overlay polygon {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
+  stroke: var(--ink-dim);
+  stroke-width: 1;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   pointer-events: all;
-}
-
-#overlay polygon.hl {
-  fill: var(--accent-soft);
-  stroke-width: 3;
+  transition: stroke 0.12s, fill 0.12s, stroke-width 0.12s;
 }
 
 #overlay polygon.sel {
-  fill: color-mix(in srgb, var(--accent) 60%, transparent);
-  stroke-width: 3;
+  stroke: var(--sel-line);
+  fill: var(--sel-soft);
+}
+
+#overlay polygon.hl {
+  stroke: var(--attention);
+  stroke-width: 1.5;
+  fill: var(--attention-soft);
 }
 
 /* ---------- toolbars ---------- */
@@ -386,6 +401,13 @@ select {
 
 .btn.small { padding: 3px 10px; font-size: 13px; }
 
+/* copy scope: selected / total, sits next to 全选 in the toolbar */
+#sel-count {
+  font-size: 13px;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
 /* segmented control: blocks | text — one visible current mode,
    thumb stays neutral so accent blue is reserved for the primary action */
 .seg {
@@ -449,15 +471,21 @@ select {
   white-space: pre-wrap;
   word-break: break-word;
   cursor: default;
-  transition: background 0.1s;
+  transition: background 0.12s, color 0.12s;
 }
 
-.block.hl { background: var(--accent-soft); }
+/* included in the copy scope: a soft tint, never a solid fill — the default
+   state after OCR is "everything selected", so it has to stay quiet */
+.block.sel { background: var(--sel-soft); }
 
-.block.sel {
-  background: var(--accent);
-  color: #fff;
-}
+/* excluded: recede from the resting view (readable again while focused or
+   hovered — attention states must stay legible) */
+.block:not(.sel):not(:focus):not(.hl) { color: var(--ink-dim); }
+
+/* attention (hover locate / edit focus) paints over selection — these rules
+   must stay below .block.sel or selected blocks show no hover feedback */
+.block.hl,
+.block:focus { background: var(--attention-soft); }
 
 /* blocks mode: tap-to-select would fight native text selection */
 #output.mode-blocks .block { user-select: none; }
@@ -471,20 +499,17 @@ select {
 }
 
 #output.mode-text .block {
-  padding: 0 1px;
+  padding: 0 2px;
   cursor: text;
   outline: none;
   border-bottom: 1px dotted var(--line);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
-#output.mode-text .block:focus { background: var(--accent-soft); }
-
-/* focused + selected: keep solid selection colors, else the higher-specificity
-   focus tint washes out the white text inherited from .block.sel */
-#output.mode-text .block.sel:focus {
-  background: var(--accent);
-  color: #fff;
-  caret-color: #fff;
+/* native drag-selection should read as part of the same blue system */
+#output ::selection {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 /* ---------- status line ---------- */

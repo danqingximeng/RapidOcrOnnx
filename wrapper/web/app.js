@@ -13,6 +13,7 @@ const statusline = $("#statusline");
 const copyBtn = $("#copy");
 const segBtns = [...document.querySelectorAll(".seg-btn")];
 const selectAllBtn = $("#select-all");
+const selCount = $("#sel-count");
 const scaleSel = $("#scale");
 const sortSel = $("#sort");
 const paraSel = $("#para");
@@ -38,7 +39,7 @@ let currentDataUrl = null; // data URL of the normalized image, sent to /v1/ocr
 let blocks = [];          // data[] of last result; .text reflects edits
 let showBoxes = true;
 let mode = "text";        // blocks | text
-let selected = new Set(); // block indexes picked as the copy source
+let selected = new Set(); // copy scope: indexes to emit; full after every result
 let controller = null;    // AbortController of in-flight request
 
 // ---------- health & models ----------
@@ -314,7 +315,6 @@ function setMode(next) {
     btn.classList.toggle("active", on);
     btn.setAttribute("aria-checked", String(on));
   }
-  selectAllBtn.hidden = next !== "blocks";
   output.classList.toggle("mode-blocks", next === "blocks");
   output.classList.toggle("mode-text", next === "text");
   renderView();
@@ -346,15 +346,15 @@ output.addEventListener("paste", (e) => {
   document.execCommand("insertText", false, e.clipboardData.getData("text/plain"));
 });
 
-// ---------- copy: selection if any, else everything ----------
+// ---------- copy: exactly the selected blocks ----------
 
 function collectText() {
   commitEdits();
-  const sel = selected.size
-    ? blocks.filter((_, i) => selected.has(i))
-    : blocks;
-  // The engine's per-block "end" separators carry the paragraph structure.
-  return sel.map((b) => b.text + (b.end ?? "\n")).join("");
+  return blocks
+    .filter((_, i) => selected.has(i))
+    // The engine's per-block "end" separators carry the paragraph structure.
+    .map((b) => b.text + (b.end ?? "\n"))
+    .join("");
 }
 
 copyBtn.addEventListener("click", async () => {
@@ -386,12 +386,16 @@ boxesBtn.addEventListener("click", () => {
 
 function renderResult(j) {
   blocks = j.data || [];
-  selected.clear();
+  // every result defines a new copy scope: start from "copy everything";
+  // pruning noise is a deliberate act the user then performs
+  selected = new Set(blocks.map((_, i) => i));
+  // boxes must exist before renderView: its syncSelection stamps .sel onto
+  // the polygons, and freshly drawn ones would otherwise stay gray
+  drawBoxes();
   renderView();
   const has = blocks.length > 0;
-  copyBtn.disabled = !has;
+  selectAllBtn.hidden = !has;
   for (const btn of segBtns) btn.disabled = !has;
-  drawBoxes();
   setStatus(formatStatus(j));
 }
 
@@ -459,6 +463,9 @@ function drawBoxes() {
     const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
     poly.setAttribute("points", b.box.map((p) => p.join(",")).join(" "));
     poly.dataset.idx = i;
+    // carry the current copy scope: boxes can be redrawn without a render
+    // (e.g. the preview reloads on re-encode) and must not flash gray
+    if (selected.has(i)) poly.classList.add("sel");
     overlay.appendChild(poly);
   });
 }
@@ -530,6 +537,9 @@ function syncSelection() {
     p.classList.toggle("sel", selected.has(Number(p.dataset.idx)))
   );
   selectAllBtn.textContent = selected.size > 0 && selected.size === blocks.length ? "取消" : "全选";
+  selCount.textContent = `${selected.size} / ${blocks.length}`;
+  selCount.hidden = blocks.length === 0;
+  copyBtn.disabled = selected.size === 0;
 }
 
 preview.addEventListener("load", drawBoxes);

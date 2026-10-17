@@ -74,10 +74,11 @@
     <div id="result-toolbar" class="toolbar">
       <div class="toolbar-group">
         <div id="mode-seg" class="seg" role="radiogroup" aria-label="结果视图">
-          <button class="seg-btn" data-mode="blocks" role="radio" aria-checked="false" disabled title="按框查看与选择">框</button>
           <button class="seg-btn active" data-mode="text" role="radio" aria-checked="true" disabled title="成文阅读与编辑">文</button>
+          <button class="seg-btn" data-mode="blocks" role="radio" aria-checked="false" disabled title="按框查看与选择">框</button>
         </div>
         <button id="select-all" class="btn" type="button" hidden>全选</button>
+        <span id="sel-count" hidden title="复制范围"></span>
       </div>
       <button id="copy" class="btn primary" type="button" disabled>复制</button>
     </div>
